@@ -18,7 +18,8 @@ default CMake looks for `../gsexp`, or you can provide an existing
 
 Optional Dear ImGui helpers build only when `GLAYOUT_WITH_IMGUI=ON` and the
 consumer provides an ImGui CMake target through `GLAYOUT_IMGUI_TARGET`, `imgui`,
-or `ImGui::ImGui`.
+or `ImGui::ImGui`. For simple source-tree integration, callers can also pass
+`GLAYOUT_IMGUI_SOURCE_DIR=/path/to/imgui`.
 
 ## Build
 
