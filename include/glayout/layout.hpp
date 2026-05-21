@@ -81,4 +81,7 @@ std::string write_layouts(const std::vector<Layout>& layouts);
 ParseResult load_layout_file(const std::filesystem::path& path);
 bool save_layout_file(const std::filesystem::path& path, const std::vector<Layout>& layouts);
 
+int generate_layout_id(const std::vector<Layout>& layouts);
+int generate_object_id(const Layout& layout);
+
 } // namespace glayout

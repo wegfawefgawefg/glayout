@@ -6,6 +6,7 @@
 #include <cmath>
 #include <fstream>
 #include <limits>
+#include <random>
 #include <sstream>
 #include <unordered_set>
 
@@ -441,6 +442,40 @@ bool save_layout_file(const std::filesystem::path& path, const std::vector<Layou
 
     file << write_layouts(layouts);
     return file.good();
+}
+
+int generate_layout_id(const std::vector<Layout>& layouts) {
+    std::unordered_set<int> used;
+    used.reserve(layouts.size());
+    for (const Layout& layout : layouts)
+        used.insert(layout.id);
+
+    static thread_local std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> dist(10000000, 99999999);
+    for (int attempt = 0; attempt < 4096; ++attempt) {
+        int candidate = dist(rng);
+        if (!used.contains(candidate))
+            return candidate;
+    }
+
+    return dist(rng);
+}
+
+int generate_object_id(const Layout& layout) {
+    std::unordered_set<int> used;
+    used.reserve(layout.objects.size());
+    for (const Object& object : layout.objects)
+        used.insert(object.id);
+
+    static thread_local std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> dist(1, 99999999);
+    for (int attempt = 0; attempt < 4096; ++attempt) {
+        int candidate = dist(rng);
+        if (!used.contains(candidate))
+            return candidate;
+    }
+
+    return dist(rng);
 }
 
 } // namespace glayout

@@ -8,6 +8,7 @@ namespace {
 
 constexpr float kMinSize = 0.01f;
 constexpr float kHandlePixels = 8.0f;
+constexpr float kPasteNudge = 0.02f;
 
 bool contains(Rect rect, float x, float y) {
     return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
@@ -281,6 +282,28 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
                 layout.objects.erase(layout.objects.begin() + *it);
         }
         editor_clear_selection(editor);
+        editor.dirty = true;
+        result.changed = true;
+        result.selection_changed = true;
+    }
+    if (input.key_copy && !editor.selection.empty()) {
+        editor.clipboard.clear();
+        for (int index : editor.selection) {
+            if (valid_object_index(layout, index))
+                editor.clipboard.push_back(layout.objects[static_cast<std::size_t>(index)]);
+        }
+    }
+    if (input.key_paste && !editor.clipboard.empty()) {
+        editor_commit_undo(editor, layout);
+        editor_clear_selection(editor);
+        for (const Object& object : editor.clipboard) {
+            Object copy = object;
+            copy.id = generate_object_id(layout);
+            copy.rect.x = std::clamp(copy.rect.x + kPasteNudge, 0.0f, 1.0f - copy.rect.w);
+            copy.rect.y = std::clamp(copy.rect.y + kPasteNudge, 0.0f, 1.0f - copy.rect.h);
+            layout.objects.push_back(copy);
+            editor_add_to_selection(editor, static_cast<int>(layout.objects.size()) - 1);
+        }
         editor.dirty = true;
         result.changed = true;
         result.selection_changed = true;

@@ -129,6 +129,11 @@ void test_replace_helpers() {
 
     require(layouts.size() == 1, "layout replace by variant key");
     require(layouts[0].label == "B", "layout replace label");
+
+    int layout_id = glayout::generate_layout_id(layouts);
+    require(layout_id != layouts[0].id, "generated layout id avoids existing id");
+    int object_id = glayout::generate_object_id(layout);
+    require(object_id != layout.objects[0].id, "generated object id avoids existing id");
 }
 
 glayout::Layout make_editor_layout() {
@@ -229,6 +234,52 @@ void test_editor_resize_delete_and_save_request() {
     require(layout.objects.size() == 1, "editor delete removes object");
 }
 
+void test_editor_copy_paste() {
+    glayout::Layout layout = make_editor_layout();
+    glayout::EditorState editor;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_select_single(editor, 0);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{
+                                    0.0f,
+                                    0.0f,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    true,
+                                },
+                                viewport);
+    require(editor.clipboard.size() == 1, "editor copy stores object");
+
+    glayout::EditorFrameResult paste_result =
+        glayout::editor_begin_frame(editor,
+                                    layout,
+                                    glayout::EditorInput{
+                                        0.0f,
+                                        0.0f,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        true,
+                                    },
+                                    viewport);
+    require(paste_result.changed, "editor paste changes layout");
+    require(layout.objects.size() == 3, "editor paste adds object");
+    require(layout.objects[2].id != layout.objects[0].id, "editor paste generates id");
+    require(editor.selection.size() == 1 && editor.selection[0] == 2, "editor paste selects copy");
+}
+
 } // namespace
 
 int main() {
@@ -238,6 +289,7 @@ int main() {
     test_replace_helpers();
     test_editor_drag_and_undo();
     test_editor_resize_delete_and_save_request();
+    test_editor_copy_paste();
 
     std::cout << "glayout_core_tests passed\n";
     return 0;

@@ -23,6 +23,8 @@ struct EditorInput {
     bool key_undo = false;
     bool key_redo = false;
     bool key_delete = false;
+    bool key_copy = false;
+    bool key_paste = false;
 };
 
 enum class Handle {
@@ -65,6 +67,7 @@ struct EditorState {
     float drag_start_y = 0.0f;
     std::vector<Object> drag_start_objects;
     std::vector<int> drag_start_selection;
+    std::vector<Object> clipboard;
 
     std::vector<Layout> undo_stack;
     std::vector<Layout> redo_stack;
