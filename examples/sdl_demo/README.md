@@ -27,5 +27,9 @@ the build directory if the caller did not provide an ImGui target/source tree.
 Press `E` to enter edit mode; the ImGui layout browser/editor appears while edit
 mode is on.
 
+The CMake path is intended to work on Linux, macOS, and Windows when SDL3 is
+available through `find_package(SDL3 CONFIG)`. The fallback `pkg-config` path is
+mainly for Unix-like local development.
+
 If configured without ImGui or without SDL3 ImGui backends, the SDL rectangle
 editor still works.

@@ -46,7 +46,10 @@ The build script also runs the core test executable through CTest.
 ```
 
 In VS Code, F5 launches the SDL demo through `.vscode/launch.json`. With the
-default `dev` preset, this is the SDL3 + ImGui demo path.
+default `dev` preset, this is the SDL3 + ImGui demo path. The checked-in VS Code
+debugger config uses `cppdbg`/`gdb`, so it is Linux-oriented; on macOS/Windows,
+use your platform's debugger config or run `./scripts/run_sdl_demo.sh` from a
+shell after installing SDL3.
 
 SDL demo controls are documented in
 [examples/sdl_demo/README.md](examples/sdl_demo/README.md).

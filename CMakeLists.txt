@@ -185,11 +185,13 @@ if(GLAYOUT_WITH_IMGUI)
 endif()
 
 if(TARGET glayout_sdl_demo AND TARGET glayout_imgui AND GLAYOUT_SDL_DEMO_IMGUI_BACKENDS_AVAILABLE)
-    set_source_files_properties(
-        "${GLAYOUT_IMGUI_SDL3_BACKEND}"
-        "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"
-        PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-error=conversion"
-    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        set_source_files_properties(
+            "${GLAYOUT_IMGUI_SDL3_BACKEND}"
+            "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"
+            PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-error=conversion"
+        )
+    endif()
     target_sources(glayout_sdl_demo PRIVATE
         "${GLAYOUT_IMGUI_SDL3_BACKEND}"
         "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"
