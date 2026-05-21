@@ -8,6 +8,7 @@ option(GLAYOUT_BUILD_EXAMPLES "Build example programs" ON)
 option(GLAYOUT_BUILD_TESTS "Build test programs" ON)
 option(GLAYOUT_BUILD_SDL_DEMO "Build SDL3 demo program when SDL3 is available" ON)
 option(GLAYOUT_WITH_IMGUI "Build optional Dear ImGui helpers" OFF)
+set(GLAYOUT_IMGUI_TARGET "" CACHE STRING "Dear ImGui CMake target for optional glayout_imgui")
 set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
     CACHE PATH "Path to a gsexp source tree when gsexp::gsexp is not already available")
 
@@ -104,4 +105,32 @@ if(GLAYOUT_BUILD_TESTS)
     glayout_apply_warnings(glayout_core_tests)
 
     add_test(NAME glayout_core_tests COMMAND glayout_core_tests)
+endif()
+
+if(GLAYOUT_WITH_IMGUI)
+    set(GLAYOUT_RESOLVED_IMGUI_TARGET "")
+    if(GLAYOUT_IMGUI_TARGET AND TARGET ${GLAYOUT_IMGUI_TARGET})
+        set(GLAYOUT_RESOLVED_IMGUI_TARGET ${GLAYOUT_IMGUI_TARGET})
+    elseif(TARGET imgui)
+        set(GLAYOUT_RESOLVED_IMGUI_TARGET imgui)
+    elseif(TARGET ImGui::ImGui)
+        set(GLAYOUT_RESOLVED_IMGUI_TARGET ImGui::ImGui)
+    endif()
+
+    if(NOT GLAYOUT_RESOLVED_IMGUI_TARGET)
+        message(FATAL_ERROR
+            "GLAYOUT_WITH_IMGUI=ON requires GLAYOUT_IMGUI_TARGET, imgui, or ImGui::ImGui")
+    endif()
+
+    add_library(glayout_imgui
+        src/imgui.cpp
+    )
+    target_link_libraries(glayout_imgui PUBLIC glayout_core ${GLAYOUT_RESOLVED_IMGUI_TARGET})
+    target_include_directories(glayout_imgui
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    target_compile_features(glayout_imgui PUBLIC cxx_std_20)
+    glayout_apply_warnings(glayout_imgui)
 endif()

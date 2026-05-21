@@ -16,6 +16,10 @@ in [docs/spec.md](docs/spec.md).
 default CMake looks for `../gsexp`, or you can provide an existing
 `gsexp::gsexp` target before adding `glayout`.
 
+Optional Dear ImGui helpers build only when `GLAYOUT_WITH_IMGUI=ON` and the
+consumer provides an ImGui CMake target through `GLAYOUT_IMGUI_TARGET`, `imgui`,
+or `ImGui::ImGui`.
+
 ## Build
 
 ```sh
