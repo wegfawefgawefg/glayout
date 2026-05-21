@@ -141,7 +141,7 @@ explicit and nonfatal.
 
 ## Modules
 
-### `glayout_core`
+### `glayout::core`
 
 Required, dependency-light module.
 
@@ -267,7 +267,7 @@ state and configuration should remain near the top of the struct. Bookkeeping
 for drag state, undo/redo, and per-frame mouse transitions can remain public for
 debugging, but normal callers should treat it as owned by the editor functions.
 
-### `glayout_imgui`
+### `glayout::imgui`
 
 Optional Dear ImGui helper module.
 
@@ -282,15 +282,15 @@ Responsibilities:
 Rules:
 
 - Compile only when `GLAYOUT_WITH_IMGUI=ON`.
-- Do not vendor ImGui.
-- Do not make ImGui a dependency of `glayout_core`.
+- Do not commit ImGui sources into this repo.
+- Do not make ImGui a dependency of `glayout::core`.
 - ImGui helpers should manipulate the same public structs and editor state as
   non-ImGui users.
 
 ## File Format
 
-Use a tiny Lisp-style S-expression format compatible with the current Gubsy
-layout files.
+Use a tiny Lisp-style S-expression format compatible with the current layout
+files.
 
 Example:
 
@@ -368,7 +368,7 @@ form factors. This fallback is nonfatal. Debug/demo tooling may show what
 happened, but core lookup should remain safe and quiet unless the caller uses a
 diagnostic API.
 
-The default score should remain close to Gubsy's current behavior:
+The default score should be:
 
 ```text
 score = abs(target_aspect - layout_aspect) * 1000 + euclidean_resolution_distance
@@ -423,7 +423,7 @@ Dirty rules:
 - Drag, resize, numeric edits, add, delete, paste, duplicate, and metadata edits
   are mutations.
 - Dirty state clears when the caller reports a successful save or reloads data.
-- Undo/redo stacks are per layout, matching Gubsy's current behavior.
+- Undo/redo stacks are per layout.
 
 ## SDL Demo
 
@@ -473,7 +473,7 @@ implementation details or become a hidden engine layer.
 
 Dependency rules:
 
-- `glayout_core` depends on `gsexp::gsexp` instead of carrying its own Lisp
+- `glayout::core` depends on `gsexp::gsexp` instead of carrying its own Lisp
   parser.
 - Consumers should link `glayout::core` when using CMake `add_subdirectory`.
 - Consumers should link `glayout::imgui` only when the optional ImGui helpers
@@ -493,23 +493,23 @@ Dependency rules:
 ## First Milestone
 
 1. Standalone repo builds with strict warnings.
-2. `glayout_core` has the public data structs and layout matching.
+2. `glayout::core` has the public data structs and layout matching.
 3. Tiny Lisp parser/writer can round-trip simple layout files.
 4. Tests or examples verify matching and parsing.
-5. No SDL, ImGui, or Gubsy dependencies in core.
+5. No SDL, ImGui, or engine dependencies in core.
 
 ## Second Milestone
 
-1. Port editor state, selection, hit-testing, drag, resize, snap, copy/paste,
-   and undo/redo from Gubsy.
+1. Add editor state, selection, hit-testing, drag, resize, snap, copy/paste, and
+   undo/redo.
 2. Replace `EngineState` coupling with explicit `EditorInput`, `Viewport`, and
    caller-owned layout vectors.
-3. Keep behavior close enough that Gubsy can switch to the library without a
-   tool regression.
+3. Keep behavior direct enough that an existing tool can switch to the library
+   without a workflow regression.
 
 ## Third Milestone
 
 1. Add optional ImGui panels.
 2. Keep ImGui source files isolated behind `GLAYOUT_WITH_IMGUI`.
-3. Port Gubsy's debug browser and editor panel features.
+3. Add debug browser and editor panel features.
 4. Add the SDL3 demo app with three pages and nine layout variants.

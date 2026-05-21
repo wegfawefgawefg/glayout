@@ -1,6 +1,6 @@
 # glayout SDL Demo
 
-This demo is a normal SDL3 consumer of `glayout_core` and `glayout_editor`.
+This demo is a normal SDL3 consumer of `glayout::core`.
 It loads `data/layouts.lisp`, picks the closest layout for the active page and
 preview form factor, and draws the resulting rectangles with SDL.
 

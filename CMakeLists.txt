@@ -9,7 +9,7 @@ option(GLAYOUT_BUILD_TESTS "Build test programs" ON)
 option(GLAYOUT_BUILD_SDL_DEMO "Build SDL3 demo program when SDL3 is available" ON)
 option(GLAYOUT_WITH_IMGUI "Build optional Dear ImGui helpers" OFF)
 option(GLAYOUT_FETCH_DEMO_IMGUI "Fetch Dear ImGui for the SDL demo when no ImGui is provided" ON)
-set(GLAYOUT_IMGUI_TARGET "" CACHE STRING "Dear ImGui CMake target for optional glayout_imgui")
+set(GLAYOUT_IMGUI_TARGET "" CACHE STRING "Dear ImGui CMake target for optional ImGui helpers")
 set(GLAYOUT_IMGUI_SOURCE_DIR "" CACHE PATH "Optional Dear ImGui source tree used to create an imgui target")
 set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
     CACHE PATH "Path to a gsexp source tree when gsexp::gsexp is not already available")
@@ -93,7 +93,7 @@ glayout_apply_warnings(glayout_core)
 
 if(GLAYOUT_BUILD_EXAMPLES)
     add_executable(glayout_demo examples/glayout_demo.cpp)
-    target_link_libraries(glayout_demo PRIVATE glayout_core)
+    target_link_libraries(glayout_demo PRIVATE glayout::core)
     target_compile_features(glayout_demo PRIVATE cxx_std_20)
     glayout_apply_warnings(glayout_demo)
 endif()
@@ -114,7 +114,7 @@ if(GLAYOUT_BUILD_SDL_DEMO)
 
     if(GLAYOUT_SDL3_TARGET)
         add_executable(glayout_sdl_demo examples/sdl_demo/main.cpp)
-        target_link_libraries(glayout_sdl_demo PRIVATE glayout_core ${GLAYOUT_SDL3_TARGET})
+        target_link_libraries(glayout_sdl_demo PRIVATE glayout::core ${GLAYOUT_SDL3_TARGET})
         target_compile_features(glayout_sdl_demo PRIVATE cxx_std_20)
         target_compile_definitions(glayout_sdl_demo PRIVATE
             GLAYOUT_SDL_DEMO_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples/sdl_demo/data")
@@ -138,7 +138,7 @@ if(GLAYOUT_BUILD_TESTS)
     enable_testing()
 
     add_executable(glayout_core_tests tests/core_tests.cpp)
-    target_link_libraries(glayout_core_tests PRIVATE glayout_core)
+    target_link_libraries(glayout_core_tests PRIVATE glayout::core)
     target_compile_features(glayout_core_tests PRIVATE cxx_std_20)
     target_compile_definitions(glayout_core_tests PRIVATE
         GLAYOUT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples/sdl_demo/data")
@@ -177,7 +177,7 @@ if(GLAYOUT_WITH_IMGUI)
         src/imgui.cpp
     )
     add_library(glayout::imgui ALIAS glayout_imgui)
-    target_link_libraries(glayout_imgui PUBLIC glayout_core ${GLAYOUT_RESOLVED_IMGUI_TARGET})
+    target_link_libraries(glayout_imgui PUBLIC glayout::core ${GLAYOUT_RESOLVED_IMGUI_TARGET})
     target_include_directories(glayout_imgui
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -203,6 +203,6 @@ if(TARGET glayout_sdl_demo AND TARGET glayout_imgui AND GLAYOUT_SDL_DEMO_IMGUI_B
         "${GLAYOUT_IMGUI_SOURCE_DIR}"
         "${GLAYOUT_IMGUI_SOURCE_DIR}/backends"
     )
-    target_link_libraries(glayout_sdl_demo PRIVATE glayout_imgui)
+    target_link_libraries(glayout_sdl_demo PRIVATE glayout::imgui)
     target_compile_definitions(glayout_sdl_demo PRIVATE GLAYOUT_SDL_DEMO_WITH_IMGUI=1)
 endif()
