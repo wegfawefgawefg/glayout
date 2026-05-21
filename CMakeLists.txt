@@ -22,6 +22,7 @@ if(NOT TARGET gsexp::gsexp)
 endif()
 
 add_library(glayout_core
+    src/editor.cpp
     src/layout.cpp
 )
 

@@ -1,3 +1,4 @@
+#include "glayout/editor.hpp"
 #include "glayout/layout.hpp"
 
 #include <cmath>
@@ -130,6 +131,104 @@ void test_replace_helpers() {
     require(layouts[0].label == "B", "layout replace label");
 }
 
+glayout::Layout make_editor_layout() {
+    glayout::Layout layout;
+    layout.id = 50;
+    layout.label = "Editor";
+    layout.width = 100;
+    layout.height = 100;
+    layout.objects.push_back(glayout::Object{1, "one", glayout::Rect{0.1f, 0.1f, 0.2f, 0.2f}});
+    layout.objects.push_back(glayout::Object{2, "two", glayout::Rect{0.6f, 0.6f, 0.2f, 0.2f}});
+    return layout;
+}
+
+void test_editor_drag_and_undo() {
+    glayout::Layout layout = make_editor_layout();
+    glayout::EditorState editor;
+    editor.snap_enabled = false;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{20.0f, 20.0f, true},
+                                viewport);
+    glayout::EditorFrameResult drag_result =
+        glayout::editor_begin_frame(editor,
+                                    layout,
+                                    glayout::EditorInput{30.0f, 30.0f, true},
+                                    viewport);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{30.0f, 30.0f, false},
+                                viewport);
+
+    require(drag_result.changed, "editor drag changes layout");
+    require(editor.dirty, "editor drag marks dirty");
+    require(layout.objects[0].rect.x > 0.19f && layout.objects[0].rect.x < 0.21f,
+            "editor drag x");
+    require(layout.objects[0].rect.y > 0.19f && layout.objects[0].rect.y < 0.21f,
+            "editor drag y");
+    require(editor.undo_stack.size() == 1, "editor drag commits undo");
+
+    require(glayout::editor_undo(editor, layout), "editor undo succeeds");
+    require(nearly_equal(layout.objects[0].rect.x, 0.1f), "editor undo x");
+    require(nearly_equal(layout.objects[0].rect.y, 0.1f), "editor undo y");
+    require(glayout::editor_redo(editor, layout), "editor redo succeeds");
+    require(nearly_equal(layout.objects[0].rect.x, 0.2f), "editor redo x");
+}
+
+void test_editor_resize_delete_and_save_request() {
+    glayout::Layout layout = make_editor_layout();
+    glayout::EditorState editor;
+    editor.snap_enabled = false;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{30.0f, 30.0f, true},
+                                viewport);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{40.0f, 40.0f, true},
+                                viewport);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{40.0f, 40.0f, false},
+                                viewport);
+
+    require(layout.objects[0].rect.w > 0.29f, "editor resize width");
+    require(layout.objects[0].rect.h > 0.29f, "editor resize height");
+
+    glayout::EditorFrameResult save_result =
+        glayout::editor_begin_frame(editor,
+                                    layout,
+                                    glayout::EditorInput{0.0f, 0.0f, false, false, false, true},
+                                    viewport);
+    require(save_result.save_requested, "editor save request result");
+    require(editor.save_requested, "editor save request state");
+    glayout::editor_mark_saved(editor);
+    require(!editor.dirty && !editor.save_requested, "editor mark saved");
+
+    glayout::editor_select_single(editor, 1);
+    glayout::EditorFrameResult delete_result =
+        glayout::editor_begin_frame(editor,
+                                    layout,
+                                    glayout::EditorInput{
+                                        0.0f,
+                                        0.0f,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        false,
+                                        true,
+                                    },
+                                    viewport);
+    require(delete_result.changed, "editor delete changes layout");
+    require(layout.objects.size() == 1, "editor delete removes object");
+}
+
 } // namespace
 
 int main() {
@@ -137,6 +236,8 @@ int main() {
     test_matching();
     test_parse_write();
     test_replace_helpers();
+    test_editor_drag_and_undo();
+    test_editor_resize_delete_and_save_request();
 
     std::cout << "glayout_core_tests passed\n";
     return 0;
