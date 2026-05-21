@@ -45,3 +45,6 @@ In VS Code, F5 launches the SDL demo through `.vscode/launch.json`.
 
 SDL demo controls are documented in
 [examples/sdl_demo/README.md](examples/sdl_demo/README.md).
+When configured with `GLAYOUT_WITH_IMGUI=ON` and an ImGui source tree containing
+the SDL3 renderer backends, the SDL demo also shows the optional ImGui panels in
+edit mode.

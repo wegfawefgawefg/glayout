@@ -98,6 +98,16 @@ if(GLAYOUT_BUILD_SDL_DEMO)
     endif()
 endif()
 
+set(GLAYOUT_SDL_DEMO_IMGUI_BACKENDS_AVAILABLE OFF)
+if(GLAYOUT_IMGUI_SOURCE_DIR)
+    set(GLAYOUT_IMGUI_SDL3_BACKEND "${GLAYOUT_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp")
+    set(GLAYOUT_IMGUI_SDLRENDERER3_BACKEND
+        "${GLAYOUT_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp")
+    if(EXISTS "${GLAYOUT_IMGUI_SDL3_BACKEND}" AND EXISTS "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}")
+        set(GLAYOUT_SDL_DEMO_IMGUI_BACKENDS_AVAILABLE ON)
+    endif()
+endif()
+
 if(GLAYOUT_BUILD_TESTS)
     enable_testing()
 
@@ -148,4 +158,17 @@ if(GLAYOUT_WITH_IMGUI)
     )
     target_compile_features(glayout_imgui PUBLIC cxx_std_20)
     glayout_apply_warnings(glayout_imgui)
+endif()
+
+if(TARGET glayout_sdl_demo AND TARGET glayout_imgui AND GLAYOUT_SDL_DEMO_IMGUI_BACKENDS_AVAILABLE)
+    target_sources(glayout_sdl_demo PRIVATE
+        "${GLAYOUT_IMGUI_SDL3_BACKEND}"
+        "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"
+    )
+    target_include_directories(glayout_sdl_demo PRIVATE
+        "${GLAYOUT_IMGUI_SOURCE_DIR}"
+        "${GLAYOUT_IMGUI_SOURCE_DIR}/backends"
+    )
+    target_link_libraries(glayout_sdl_demo PRIVATE glayout_imgui)
+    target_compile_definitions(glayout_sdl_demo PRIVATE GLAYOUT_SDL_DEMO_WITH_IMGUI=1)
 endif()

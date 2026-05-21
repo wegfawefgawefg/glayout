@@ -3,6 +3,14 @@
 
 #include <SDL3/SDL.h>
 
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+#include "glayout/imgui.hpp"
+
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_sdlrenderer3.h>
+#include <imgui.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -187,10 +195,21 @@ int main(int, char**) {
     bool edit_mode = false;
     bool running = true;
 
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+    int imgui_selected_layout = 0;
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer3_Init(renderer);
+#endif
+
     while (running) {
         glayout::EditorInput editor_input;
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+            ImGui_ImplSDL3_ProcessEvent(&event);
+#endif
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
@@ -264,10 +283,19 @@ int main(int, char**) {
         int layout_index =
             best_layout_index(layouts, page_id, preview.width, preview.height, preview.form_factor);
         if (layout_index < 0) {
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+            ImGui_ImplSDLRenderer3_NewFrame();
+            ImGui_ImplSDL3_NewFrame();
+            ImGui::NewFrame();
+#endif
             set_color(renderer, 18, 22, 26, 255);
             SDL_RenderClear(renderer);
             set_color(renderer, 245, 245, 245, 255);
             draw_text(renderer, 20.0f, 20.0f, "No matching layout.");
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+            ImGui::Render();
+            ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
+#endif
             SDL_RenderPresent(renderer);
             SDL_Delay(16);
             continue;
@@ -275,6 +303,12 @@ int main(int, char**) {
 
         glayout::Layout& layout = layouts[static_cast<std::size_t>(layout_index)];
         focused_object = std::clamp(focused_object, 0, static_cast<int>(layout.objects.size()) - 1);
+
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+#endif
 
         if (edit_mode) {
             glayout::editor_begin_frame(editor,
@@ -287,6 +321,29 @@ int main(int, char**) {
                                             static_cast<float>(window_h),
                                         });
         }
+
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+        if (edit_mode) {
+            imgui_selected_layout = layout_index;
+            if (glayout::imgui::render_layout_pool_editor(editor, layouts, imgui_selected_layout)) {
+                if (imgui_selected_layout >= 0 &&
+                    imgui_selected_layout < static_cast<int>(layouts.size())) {
+                    const glayout::Layout& selected =
+                        layouts[static_cast<std::size_t>(imgui_selected_layout)];
+                    page_id = selected.id;
+                    focused_object = 0;
+                    for (int i = 0; i < static_cast<int>(kPreviewPresets.size()); ++i) {
+                        if (kPreviewPresets[static_cast<std::size_t>(i)].form_factor ==
+                            selected.form_factor) {
+                            preview_index = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            glayout::imgui::render_layout_browser(layouts);
+        }
+#endif
 
         if (editor.save_requested) {
             if (glayout::save_layout_file(layout_path, layouts))
@@ -311,9 +368,20 @@ int main(int, char**) {
             draw_text(renderer, 14.0f, 78.0f, "dirty");
         }
 
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+        ImGui::Render();
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
+#endif
+
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
     }
+
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+    ImGui_ImplSDLRenderer3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+#endif
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
