@@ -325,7 +325,7 @@ int main(int, char**) {
 #if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
         if (edit_mode) {
             imgui_selected_layout = layout_index;
-            if (glayout::imgui::render_layout_pool_editor(editor, layouts, imgui_selected_layout)) {
+            if (glayout::imgui::render_integrated_editor(editor, layouts, imgui_selected_layout)) {
                 if (imgui_selected_layout >= 0 &&
                     imgui_selected_layout < static_cast<int>(layouts.size())) {
                     const glayout::Layout& selected =
@@ -341,7 +341,6 @@ int main(int, char**) {
                     }
                 }
             }
-            glayout::imgui::render_layout_browser(layouts);
         }
 #endif
 

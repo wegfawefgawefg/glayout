@@ -12,5 +12,8 @@ bool render_editor_panel(EditorState& editor, Layout& layout);
 bool render_layout_pool_editor(EditorState& editor,
                                std::vector<Layout>& layouts,
                                int& selected_layout_index);
+bool render_integrated_editor(EditorState& editor,
+                              std::vector<Layout>& layouts,
+                              int& selected_layout_index);
 
 } // namespace glayout::imgui
