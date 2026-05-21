@@ -52,13 +52,13 @@ std::string layout_key_string(const Layout& layout) {
            std::to_string(layout.height) + ":" + std::string(to_string(layout.form_factor));
 }
 
-bool parse_resolution(const gsexp::Value& layout_node, int& width, int& height) {
-    const gsexp::Value* res_node = gsexp::find_child(layout_node, "resolution");
-    if (!res_node)
+bool parse_resolution(gsexp::Node layout_node, int& width, int& height) {
+    gsexp::Node res_node = gsexp::find_child(layout_node, "resolution");
+    if (!res_node.valid())
         return false;
 
-    std::optional<int> parsed_width = gsexp::extract_int(*res_node, "width");
-    std::optional<int> parsed_height = gsexp::extract_int(*res_node, "height");
+    std::optional<int> parsed_width = gsexp::extract_int(res_node, "width");
+    std::optional<int> parsed_height = gsexp::extract_int(res_node, "height");
     if (!parsed_width || !parsed_height)
         return false;
 
@@ -67,21 +67,21 @@ bool parse_resolution(const gsexp::Value& layout_node, int& width, int& height) 
     return true;
 }
 
-FormFactor parse_form_factor(const gsexp::Value& layout_node, std::vector<Diagnostic>& diagnostics) {
-    const gsexp::Value* form_node = gsexp::find_child(layout_node, "form_factor");
-    if (!form_node || form_node->list.size() < 2)
+FormFactor parse_form_factor(gsexp::Node layout_node, std::vector<Diagnostic>& diagnostics) {
+    gsexp::Node form_node = gsexp::find_child(layout_node, "form_factor");
+    if (!form_node.valid() || form_node.child_count() < 2)
         return FormFactor::Desktop;
 
-    const gsexp::Value& value = form_node->list[1];
-    if (value.type != gsexp::ValueType::Atom && value.type != gsexp::ValueType::String) {
+    gsexp::Node value = form_node.child_at(1);
+    if (value.type() != gsexp::ValueType::Atom && value.type() != gsexp::ValueType::String) {
         add_warning(diagnostics, "layout form_factor is not an atom/string; defaulting to desktop");
         return FormFactor::Desktop;
     }
 
-    return form_factor_from_string(value.text, &diagnostics);
+    return form_factor_from_string(value.text(), &diagnostics);
 }
 
-bool parse_object(const gsexp::Value& object_node, Object& out) {
+bool parse_object(gsexp::Node object_node, Object& out) {
     std::optional<int> id = gsexp::extract_int(object_node, "id");
     std::optional<std::string> label = gsexp::extract_string(object_node, "label");
     std::optional<float> x = gsexp::extract_float(object_node, "x");
@@ -96,9 +96,7 @@ bool parse_object(const gsexp::Value& object_node, Object& out) {
     return true;
 }
 
-bool parse_layout_node(const gsexp::Value& layout_node,
-                       Layout& out,
-                       std::vector<Diagnostic>& diagnostics) {
+bool parse_layout_node(gsexp::Node layout_node, Layout& out, std::vector<Diagnostic>& diagnostics) {
     std::optional<int> id = gsexp::extract_int(layout_node, "id");
     std::optional<std::string> label = gsexp::extract_string(layout_node, "label");
 
@@ -114,13 +112,17 @@ bool parse_layout_node(const gsexp::Value& layout_node,
     layout.height = height;
     layout.form_factor = parse_form_factor(layout_node, diagnostics);
 
-    const gsexp::Value* objects_node = gsexp::find_child(layout_node, "objects");
-    if (objects_node && objects_node->type == gsexp::ValueType::List) {
-        for (std::size_t index = 1; index < objects_node->list.size(); ++index) {
-            const gsexp::Value& object_node = objects_node->list[index];
-            if (object_node.type != gsexp::ValueType::List || object_node.list.empty())
+    gsexp::Node objects_node = gsexp::find_child(layout_node, "objects");
+    if (objects_node.is_list()) {
+        bool first = true;
+        for (gsexp::Node object_node : objects_node.children()) {
+            if (first) {
+                first = false;
                 continue;
-            if (!gsexp::is_atom(object_node.list.front(), "object"))
+            }
+            if (!object_node.is_list() || object_node.child_count() == 0)
+                continue;
+            if (!object_node.child_at(0).is_atom("object"))
                 continue;
 
             Object object;
@@ -347,28 +349,33 @@ ParseResult parse_layouts(std::string_view text) {
         return result;
     }
 
-    const gsexp::Value* root = nullptr;
-    for (const gsexp::Value& value : parsed.values) {
-        if (value.type != gsexp::ValueType::List || value.list.empty())
+    gsexp::Node root;
+    for (std::size_t index = 0; index < parsed.root_count(); ++index) {
+        gsexp::Node value = parsed.root(index);
+        if (!value.is_list() || value.child_count() == 0)
             continue;
-        if (gsexp::is_atom(value.list.front(), "ui_layouts")) {
-            root = &value;
+        if (value.child_at(0).is_atom("ui_layouts")) {
+            root = value;
             break;
         }
     }
 
-    if (!root) {
+    if (!root.valid()) {
         add_error(result.diagnostics, "missing ui_layouts root");
         result.ok = false;
         return result;
     }
 
     std::unordered_set<std::string> seen_keys;
-    for (std::size_t index = 1; index < root->list.size(); ++index) {
-        const gsexp::Value& entry = root->list[index];
-        if (entry.type != gsexp::ValueType::List || entry.list.empty())
+    bool first = true;
+    for (gsexp::Node entry : root.children()) {
+        if (first) {
+            first = false;
             continue;
-        if (!gsexp::is_atom(entry.list.front(), "layout"))
+        }
+        if (!entry.is_list() || entry.child_count() == 0)
+            continue;
+        if (!entry.child_at(0).is_atom("layout"))
             continue;
 
         Layout layout;
