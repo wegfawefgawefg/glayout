@@ -1,5 +1,9 @@
 # glayout
 
+<p>
+  <img src="assets/logo.svg" alt="glayout logo" width="96" height="96">
+</p>
+
 `glayout` is a small C++20 library for storing, selecting, and editing 2D
 rectangle layouts. It is meant for games and custom UI code that already has its
 own renderer, input system, and widget behavior.
