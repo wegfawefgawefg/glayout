@@ -73,8 +73,8 @@ FormFactor parse_form_factor(const gsexp::Value& layout_node, std::vector<Diagno
         return FormFactor::Desktop;
 
     const gsexp::Value& value = form_node->list[1];
-    if (value.type != gsexp::ValueType::Symbol && value.type != gsexp::ValueType::String) {
-        add_warning(diagnostics, "layout form_factor is not a symbol/string; defaulting to desktop");
+    if (value.type != gsexp::ValueType::Atom && value.type != gsexp::ValueType::String) {
+        add_warning(diagnostics, "layout form_factor is not an atom/string; defaulting to desktop");
         return FormFactor::Desktop;
     }
 
@@ -120,7 +120,7 @@ bool parse_layout_node(const gsexp::Value& layout_node,
             const gsexp::Value& object_node = objects_node->list[index];
             if (object_node.type != gsexp::ValueType::List || object_node.list.empty())
                 continue;
-            if (!gsexp::is_symbol(object_node.list.front(), "object"))
+            if (!gsexp::is_atom(object_node.list.front(), "object"))
                 continue;
 
             Object object;
@@ -351,7 +351,7 @@ ParseResult parse_layouts(std::string_view text) {
     for (const gsexp::Value& value : parsed.values) {
         if (value.type != gsexp::ValueType::List || value.list.empty())
             continue;
-        if (gsexp::is_symbol(value.list.front(), "ui_layouts")) {
+        if (gsexp::is_atom(value.list.front(), "ui_layouts")) {
             root = &value;
             break;
         }
@@ -368,7 +368,7 @@ ParseResult parse_layouts(std::string_view text) {
         const gsexp::Value& entry = root->list[index];
         if (entry.type != gsexp::ValueType::List || entry.list.empty())
             continue;
-        if (!gsexp::is_symbol(entry.list.front(), "layout"))
+        if (!gsexp::is_atom(entry.list.front(), "layout"))
             continue;
 
         Layout layout;
