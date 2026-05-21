@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build glayout",
+      "type": "shell",
+      "command": "${workspaceFolder}/scripts/build.sh",
+      "group": "build",
+      "problemMatcher": "$gcc"
+    }
+  ]
+}

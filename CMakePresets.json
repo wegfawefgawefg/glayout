@@ -16,6 +16,7 @@
         "GLAYOUT_WARN_AS_ERROR": true,
         "GLAYOUT_BUILD_EXAMPLES": true,
         "GLAYOUT_BUILD_TESTS": true,
+        "GLAYOUT_BUILD_SDL_DEMO": true,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     }

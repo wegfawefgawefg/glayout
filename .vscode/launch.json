@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "glayout SDL demo",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/glayout_sdl_demo",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "build glayout",
+      "MIMode": "gdb"
+    }
+  ]
+}

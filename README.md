@@ -29,3 +29,11 @@ The build script also runs the core test executable through CTest.
 ```sh
 ./scripts/run.sh
 ```
+
+## Run SDL Demo
+
+```sh
+./scripts/run_sdl_demo.sh
+```
+
+In VS Code, F5 launches the SDL demo through `.vscode/launch.json`.
