@@ -102,6 +102,8 @@ if(GLAYOUT_BUILD_TESTS)
     add_executable(glayout_core_tests tests/core_tests.cpp)
     target_link_libraries(glayout_core_tests PRIVATE glayout_core)
     target_compile_features(glayout_core_tests PRIVATE cxx_std_20)
+    target_compile_definitions(glayout_core_tests PRIVATE
+        GLAYOUT_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples/sdl_demo/data")
     glayout_apply_warnings(glayout_core_tests)
 
     add_test(NAME glayout_core_tests COMMAND glayout_core_tests)

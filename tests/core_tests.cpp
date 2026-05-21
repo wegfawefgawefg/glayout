@@ -2,6 +2,7 @@
 #include "glayout/layout.hpp"
 
 #include <cmath>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -105,6 +106,30 @@ void test_parse_write() {
     glayout::ParseResult round_trip = glayout::parse_layouts(written);
     require(round_trip.ok, "round-trip parse ok");
     require(round_trip.layouts.size() == result.layouts.size(), "round-trip layout count");
+}
+
+void test_demo_layout_file() {
+    glayout::ParseResult result =
+        glayout::load_layout_file(std::filesystem::path(GLAYOUT_TEST_DATA_DIR) / "layouts.lisp");
+    require(result.ok, "demo layouts parse");
+    require(result.layouts.size() == 9, "demo has nine layout variants");
+
+    int title = 0;
+    int settings = 0;
+    int credits = 0;
+    for (const glayout::Layout& layout : result.layouts) {
+        if (layout.id == 100)
+            ++title;
+        if (layout.id == 200)
+            ++settings;
+        if (layout.id == 300)
+            ++credits;
+        require(!layout.objects.empty(), "demo layout has objects");
+    }
+
+    require(title == 3, "demo title variants");
+    require(settings == 3, "demo settings variants");
+    require(credits == 3, "demo credits variants");
 }
 
 void test_replace_helpers() {
@@ -286,6 +311,7 @@ int main() {
     test_rect_mapping();
     test_matching();
     test_parse_write();
+    test_demo_layout_file();
     test_replace_helpers();
     test_editor_drag_and_undo();
     test_editor_resize_delete_and_save_request();

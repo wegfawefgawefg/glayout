@@ -41,3 +41,6 @@ The build script also runs the core test executable through CTest.
 ```
 
 In VS Code, F5 launches the SDL demo through `.vscode/launch.json`.
+
+SDL demo controls are documented in
+[examples/sdl_demo/README.md](examples/sdl_demo/README.md).
