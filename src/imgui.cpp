@@ -150,4 +150,84 @@ bool render_editor_panel(EditorState& editor, Layout& layout) {
     return changed;
 }
 
+bool render_layout_pool_editor(EditorState& editor,
+                               std::vector<Layout>& layouts,
+                               int& selected_layout_index) {
+    bool changed = false;
+
+    if (!ImGui::Begin("glayout: Layout Pool")) {
+        ImGui::End();
+        return false;
+    }
+
+    if (layouts.empty()) {
+        ImGui::TextUnformatted("No layouts loaded.");
+        if (ImGui::Button("New layout")) {
+            Layout layout;
+            layout.id = generate_layout_id(layouts);
+            layout.label = "Layout_" + std::to_string(layout.id);
+            layout.width = 1920;
+            layout.height = 1080;
+            layout.form_factor = FormFactor::Desktop;
+            layouts.push_back(layout);
+            selected_layout_index = 0;
+            changed = true;
+        }
+        ImGui::End();
+        return changed;
+    }
+
+    selected_layout_index =
+        std::clamp(selected_layout_index, 0, static_cast<int>(layouts.size()) - 1);
+
+    if (ImGui::BeginListBox("Layouts")) {
+        for (int i = 0; i < static_cast<int>(layouts.size()); ++i) {
+            const Layout& layout = layouts[static_cast<std::size_t>(i)];
+            std::string label = layout.label + " #" + std::to_string(layout.id) + " " +
+                                std::to_string(layout.width) + "x" +
+                                std::to_string(layout.height) + " " +
+                                std::string(form_factor_label(layout.form_factor));
+            if (ImGui::Selectable(label.c_str(), selected_layout_index == i)) {
+                selected_layout_index = i;
+                editor_clear_selection(editor);
+            }
+        }
+        ImGui::EndListBox();
+    }
+
+    Layout& selected = layouts[static_cast<std::size_t>(selected_layout_index)];
+    if (ImGui::Button("Duplicate layout")) {
+        Layout copy = selected;
+        copy.id = generate_layout_id(layouts);
+        copy.label += "_copy";
+        layouts.push_back(copy);
+        selected_layout_index = static_cast<int>(layouts.size()) - 1;
+        editor_clear_selection(editor);
+        changed = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("New layout")) {
+        Layout layout;
+        layout.id = generate_layout_id(layouts);
+        layout.label = "Layout_" + std::to_string(layout.id);
+        layout.width = selected.width;
+        layout.height = selected.height;
+        layout.form_factor = selected.form_factor;
+        layouts.push_back(layout);
+        selected_layout_index = static_cast<int>(layouts.size()) - 1;
+        editor_clear_selection(editor);
+        changed = true;
+    }
+
+    ImGui::End();
+
+    if (selected_layout_index >= 0 && selected_layout_index < static_cast<int>(layouts.size())) {
+        changed =
+            render_editor_panel(editor, layouts[static_cast<std::size_t>(selected_layout_index)]) ||
+            changed;
+    }
+
+    return changed;
+}
+
 } // namespace glayout::imgui

@@ -251,6 +251,9 @@ struct EditorInput {
     bool key_save;
     bool key_undo;
     bool key_redo;
+    bool key_delete;
+    bool key_copy;
+    bool key_paste;
 };
 ```
 
@@ -312,9 +315,7 @@ Parser result shape:
 struct ParseResult {
     bool ok;
     std::vector<Layout> layouts;
-    std::string message;
-    int line;
-    int column;
+    std::vector<Diagnostic> diagnostics;
 };
 ```
 

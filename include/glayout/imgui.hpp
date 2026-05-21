@@ -9,5 +9,8 @@ namespace glayout::imgui {
 
 void render_layout_browser(const std::vector<Layout>& layouts);
 bool render_editor_panel(EditorState& editor, Layout& layout);
+bool render_layout_pool_editor(EditorState& editor,
+                               std::vector<Layout>& layouts,
+                               int& selected_layout_index);
 
 } // namespace glayout::imgui
