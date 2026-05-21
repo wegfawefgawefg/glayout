@@ -305,6 +305,51 @@ void test_editor_copy_paste() {
     require(editor.selection.size() == 1 && editor.selection[0] == 2, "editor paste selects copy");
 }
 
+void test_editor_handles_oversized_rects() {
+    glayout::Layout layout = make_editor_layout();
+    layout.objects[0].rect = glayout::Rect{0.1f, 0.1f, 1.2f, 1.1f};
+
+    glayout::EditorState editor;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_select_single(editor, 0);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{
+                                    0.0f,
+                                    0.0f,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    true,
+                                },
+                                viewport);
+    glayout::editor_begin_frame(editor,
+                                layout,
+                                glayout::EditorInput{
+                                    0.0f,
+                                    0.0f,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    false,
+                                    true,
+                                },
+                                viewport);
+
+    require(layout.objects.size() == 3, "oversized paste adds object");
+    require(nearly_equal(layout.objects[2].rect.x, 0.0f), "oversized paste clamps x safely");
+    require(nearly_equal(layout.objects[2].rect.y, 0.0f), "oversized paste clamps y safely");
+}
+
 void test_editor_overlay_data() {
     glayout::Layout layout = make_editor_layout();
     glayout::EditorState editor;
@@ -335,6 +380,7 @@ int main() {
     test_editor_drag_and_undo();
     test_editor_resize_delete_and_save_request();
     test_editor_copy_paste();
+    test_editor_handles_oversized_rects();
     test_editor_overlay_data();
 
     std::cout << "glayout_core_tests passed\n";

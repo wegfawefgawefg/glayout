@@ -26,6 +26,11 @@ float maybe_snap(const EditorState& editor, float value) {
     return snap(value, editor.grid_step);
 }
 
+float clamp_unit_position(float value, float size) {
+    float max_position = std::max(0.0f, 1.0f - size);
+    return std::clamp(value, 0.0f, max_position);
+}
+
 Rect object_to_screen(const Object& object, Viewport viewport) {
     return map_rect(Rect{viewport.x, viewport.y, viewport.w, viewport.h}, object.rect);
 }
@@ -120,8 +125,8 @@ void translate_selection(EditorState& editor, Layout& layout, float dx, float dy
 
         const Object& start = editor.drag_start_objects[i];
         Object& object = layout.objects[static_cast<std::size_t>(index)];
-        object.rect.x = std::clamp(maybe_snap(editor, start.rect.x + dx), 0.0f, 1.0f - object.rect.w);
-        object.rect.y = std::clamp(maybe_snap(editor, start.rect.y + dy), 0.0f, 1.0f - object.rect.h);
+        object.rect.x = clamp_unit_position(maybe_snap(editor, start.rect.x + dx), object.rect.w);
+        object.rect.y = clamp_unit_position(maybe_snap(editor, start.rect.y + dy), object.rect.h);
     }
 }
 
@@ -187,12 +192,10 @@ void resize_primary(EditorState& editor, Layout& layout, float dx, float dy) {
     rect.w = maybe_snap(editor, rect.w);
     rect.h = maybe_snap(editor, rect.h);
 
-    rect.w = std::max(kMinSize, rect.w);
-    rect.h = std::max(kMinSize, rect.h);
-    rect.x = std::clamp(rect.x, 0.0f, 1.0f - rect.w);
-    rect.y = std::clamp(rect.y, 0.0f, 1.0f - rect.h);
-    rect.w = std::min(rect.w, 1.0f - rect.x);
-    rect.h = std::min(rect.h, 1.0f - rect.y);
+    rect.w = std::clamp(rect.w, kMinSize, 1.0f);
+    rect.h = std::clamp(rect.h, kMinSize, 1.0f);
+    rect.x = clamp_unit_position(rect.x, rect.w);
+    rect.y = clamp_unit_position(rect.y, rect.h);
 
     layout.objects[static_cast<std::size_t>(editor.primary)].rect = rect;
 }
@@ -299,8 +302,8 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
         for (const Object& object : editor.clipboard) {
             Object copy = object;
             copy.id = generate_object_id(layout);
-            copy.rect.x = std::clamp(copy.rect.x + kPasteNudge, 0.0f, 1.0f - copy.rect.w);
-            copy.rect.y = std::clamp(copy.rect.y + kPasteNudge, 0.0f, 1.0f - copy.rect.h);
+            copy.rect.x = clamp_unit_position(copy.rect.x + kPasteNudge, copy.rect.w);
+            copy.rect.y = clamp_unit_position(copy.rect.y + kPasteNudge, copy.rect.h);
             layout.objects.push_back(copy);
             editor_add_to_selection(editor, static_cast<int>(layout.objects.size()) - 1);
         }

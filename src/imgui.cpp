@@ -93,6 +93,7 @@ bool render_layout_actions(EditorState& editor,
             layout.form_factor = FormFactor::Desktop;
             layouts.push_back(layout);
             selected_layout_index = 0;
+            editor.dirty = true;
             changed = true;
         }
         return changed;
@@ -109,6 +110,7 @@ bool render_layout_actions(EditorState& editor,
         layouts.push_back(copy);
         selected_layout_index = static_cast<int>(layouts.size()) - 1;
         editor_clear_selection(editor);
+        editor.dirty = true;
         changed = true;
     }
     ImGui::SameLine();
@@ -122,6 +124,7 @@ bool render_layout_actions(EditorState& editor,
         layouts.push_back(layout);
         selected_layout_index = static_cast<int>(layouts.size()) - 1;
         editor_clear_selection(editor);
+        editor.dirty = true;
         changed = true;
     }
 
@@ -221,11 +224,15 @@ bool render_editor_panel(EditorState& editor, Layout& layout) {
     }
     ImGui::SameLine();
     if (ImGui::Button("Undo")) {
-        changed = editor_undo(editor, layout) || changed;
+        bool undone = editor_undo(editor, layout);
+        editor.dirty = undone || editor.dirty;
+        changed = undone || changed;
     }
     ImGui::SameLine();
     if (ImGui::Button("Redo")) {
-        changed = editor_redo(editor, layout) || changed;
+        bool redone = editor_redo(editor, layout);
+        editor.dirty = redone || editor.dirty;
+        changed = redone || changed;
     }
 
     if (editor.dirty)
@@ -258,6 +265,7 @@ bool render_layout_pool_editor(EditorState& editor,
             layout.form_factor = FormFactor::Desktop;
             layouts.push_back(layout);
             selected_layout_index = 0;
+            editor.dirty = true;
             changed = true;
         }
         ImGui::End();
@@ -267,7 +275,7 @@ bool render_layout_pool_editor(EditorState& editor,
     selected_layout_index =
         std::clamp(selected_layout_index, 0, static_cast<int>(layouts.size()) - 1);
 
-    render_layout_list(editor, layouts, selected_layout_index, 128.0f);
+    changed = render_layout_list(editor, layouts, selected_layout_index, 128.0f) || changed;
     changed = render_layout_actions(editor, layouts, selected_layout_index) || changed;
 
     ImGui::End();
@@ -316,11 +324,17 @@ bool render_integrated_editor(EditorState& editor,
     if (ImGui::Button("Save"))
         editor.save_requested = true;
     ImGui::SameLine();
-    if (ImGui::Button("Undo"))
-        changed = editor_undo(editor, selected) || changed;
+    if (ImGui::Button("Undo")) {
+        bool undone = editor_undo(editor, selected);
+        editor.dirty = undone || editor.dirty;
+        changed = undone || changed;
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Redo"))
-        changed = editor_redo(editor, selected) || changed;
+    if (ImGui::Button("Redo")) {
+        bool redone = editor_redo(editor, selected);
+        editor.dirty = redone || editor.dirty;
+        changed = redone || changed;
+    }
     ImGui::SameLine();
     ImGui::Checkbox("Snap", &editor.snap_enabled);
     ImGui::SameLine();
@@ -336,8 +350,10 @@ bool render_integrated_editor(EditorState& editor,
 
         ImGui::TableSetColumnIndex(0);
         ImGui::TextUnformatted("Layouts");
-        render_layout_list(editor, layouts, selected_layout_index, 220.0f);
+        changed = render_layout_list(editor, layouts, selected_layout_index, 220.0f) || changed;
         changed = render_layout_actions(editor, layouts, selected_layout_index) || changed;
+        selected_layout_index =
+            std::clamp(selected_layout_index, 0, static_cast<int>(layouts.size()) - 1);
         if (ImGui::CollapsingHeader("Browser", ImGuiTreeNodeFlags_DefaultOpen)) {
             Layout& current = layouts[static_cast<std::size_t>(selected_layout_index)];
             ImGui::Text("Objects: %zu", current.objects.size());
@@ -346,7 +362,8 @@ bool render_integrated_editor(EditorState& editor,
 
         ImGui::TableSetColumnIndex(1);
         ImGui::TextUnformatted("Objects");
-        changed = render_object_editor(editor, selected) || changed;
+        Layout& current = layouts[static_cast<std::size_t>(selected_layout_index)];
+        changed = render_object_editor(editor, current) || changed;
         ImGui::SeparatorText("Help");
         ImGui::TextUnformatted("Drag rectangles in the SDL view. S saves. Z/Y undo/redo.");
         ImGui::TextUnformatted("C/V copy/paste. Delete removes selected object.");

@@ -17,6 +17,7 @@ set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
 if(NOT TARGET gsexp::gsexp)
     if(EXISTS "${GLAYOUT_GSEXP_SOURCE_DIR}/CMakeLists.txt")
         set(GSEXP_BUILD_EXAMPLES OFF CACHE BOOL "Build gsexp examples" FORCE)
+        set(GSEXP_BUILD_TESTS OFF CACHE BOOL "Build gsexp tests" FORCE)
         add_subdirectory("${GLAYOUT_GSEXP_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/_deps/gsexp")
     else()
         message(FATAL_ERROR
