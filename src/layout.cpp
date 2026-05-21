@@ -53,12 +53,13 @@ std::string layout_key_string(const Layout& layout) {
 }
 
 bool parse_resolution(gsexp::Node layout_node, int& width, int& height) {
-    gsexp::Node res_node = gsexp::find_child(layout_node, "resolution");
+    gsexp::Node res_node = gsexp::FormView(layout_node).find("resolution");
     if (!res_node.valid())
         return false;
 
-    std::optional<int> parsed_width = gsexp::extract_int(res_node, "width");
-    std::optional<int> parsed_height = gsexp::extract_int(res_node, "height");
+    gsexp::FormView resolution(res_node);
+    std::optional<int> parsed_width = resolution.get_int("width");
+    std::optional<int> parsed_height = resolution.get_int("height");
     if (!parsed_width || !parsed_height)
         return false;
 
@@ -68,7 +69,7 @@ bool parse_resolution(gsexp::Node layout_node, int& width, int& height) {
 }
 
 FormFactor parse_form_factor(gsexp::Node layout_node, std::vector<Diagnostic>& diagnostics) {
-    gsexp::Node form_node = gsexp::find_child(layout_node, "form_factor");
+    gsexp::Node form_node = gsexp::FormView(layout_node).find("form_factor");
     if (!form_node.valid() || form_node.child_count() < 2)
         return FormFactor::Desktop;
 
@@ -82,12 +83,13 @@ FormFactor parse_form_factor(gsexp::Node layout_node, std::vector<Diagnostic>& d
 }
 
 bool parse_object(gsexp::Node object_node, Object& out) {
-    std::optional<int> id = gsexp::extract_int(object_node, "id");
-    std::optional<std::string> label = gsexp::extract_string(object_node, "label");
-    std::optional<float> x = gsexp::extract_float(object_node, "x");
-    std::optional<float> y = gsexp::extract_float(object_node, "y");
-    std::optional<float> w = gsexp::extract_float(object_node, "w");
-    std::optional<float> h = gsexp::extract_float(object_node, "h");
+    gsexp::FormView object(object_node);
+    std::optional<int> id = object.get_int("id");
+    std::optional<std::string> label = object.get_string("label");
+    std::optional<float> x = object.get_float("x");
+    std::optional<float> y = object.get_float("y");
+    std::optional<float> w = object.get_float("w");
+    std::optional<float> h = object.get_float("h");
 
     if (!id || !label || !x || !y || !w || !h)
         return false;
@@ -97,8 +99,9 @@ bool parse_object(gsexp::Node object_node, Object& out) {
 }
 
 bool parse_layout_node(gsexp::Node layout_node, Layout& out, std::vector<Diagnostic>& diagnostics) {
-    std::optional<int> id = gsexp::extract_int(layout_node, "id");
-    std::optional<std::string> label = gsexp::extract_string(layout_node, "label");
+    gsexp::FormView layout_form(layout_node);
+    std::optional<int> id = layout_form.get_int("id");
+    std::optional<std::string> label = layout_form.get_string("label");
 
     int width = 0;
     int height = 0;
@@ -112,7 +115,7 @@ bool parse_layout_node(gsexp::Node layout_node, Layout& out, std::vector<Diagnos
     layout.height = height;
     layout.form_factor = parse_form_factor(layout_node, diagnostics);
 
-    gsexp::Node objects_node = gsexp::find_child(layout_node, "objects");
+    gsexp::Node objects_node = layout_form.find("objects");
     if (objects_node.is_list()) {
         bool first = true;
         for (gsexp::Node object_node : objects_node.children()) {
