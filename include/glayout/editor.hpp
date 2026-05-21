@@ -65,13 +65,17 @@ struct OverlayHandle {
 };
 
 struct EditorState {
+    // Caller-visible state/configuration.
     bool dirty = false;
     bool save_requested = false;
     bool snap_enabled = true;
     float grid_step = 0.05f;
     std::vector<int> selection;
     int primary = -1;
+    std::vector<Object> clipboard;
 
+    // Editor bookkeeping. It is public for easy debugging, but normal callers
+    // should let the editor functions update it.
     bool mouse_was_down = false;
     bool dragging = false;
     bool drag_changed = false;
@@ -80,8 +84,6 @@ struct EditorState {
     float drag_start_y = 0.0f;
     std::vector<Object> drag_start_objects;
     std::vector<int> drag_start_selection;
-    std::vector<Object> clipboard;
-
     std::vector<Layout> undo_stack;
     std::vector<Layout> redo_stack;
 };

@@ -54,6 +54,8 @@ add_library(glayout_core
     src/layout.cpp
 )
 
+add_library(glayout::core ALIAS glayout_core)
+
 target_include_directories(glayout_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -174,6 +176,7 @@ if(GLAYOUT_WITH_IMGUI)
     add_library(glayout_imgui
         src/imgui.cpp
     )
+    add_library(glayout::imgui ALIAS glayout_imgui)
     target_link_libraries(glayout_imgui PUBLIC glayout_core ${GLAYOUT_RESOLVED_IMGUI_TARGET})
     target_include_directories(glayout_imgui
         PUBLIC

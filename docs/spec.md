@@ -12,7 +12,8 @@ The library should stay boring:
 - Plain structs over class hierarchies.
 - Explicit function calls over callback-heavy frameworks.
 - No required renderer, windowing, engine, or ImGui dependency in the core.
-- Optional editor and ImGui helpers should sit beside the core, not inside it.
+- The renderer-free editor should stay independent of SDL, ImGui, and engines.
+- Optional ImGui helpers should sit beside the core, not inside it.
 - File format should remain small, readable, and hand-editable.
 
 ## Responsibilities
@@ -220,9 +221,9 @@ std::string_view to_string(FormFactor form_factor);
 FormFactor form_factor_from_string(std::string_view text);
 ```
 
-### `glayout_editor`
+### Renderer-Free Editor
 
-Optional runtime editing module.
+Runtime editing API included with `glayout::core`.
 
 Responsibilities:
 
@@ -260,6 +261,11 @@ struct EditorInput {
 The editor should not require a renderer. It should expose enough state for the
 host or optional ImGui helper to draw overlays. If we keep a concrete renderer
 helper later, it should be a separate adapter file.
+
+`EditorState` is intentionally a plain, inspectable struct. Caller-visible
+state and configuration should remain near the top of the struct. Bookkeeping
+for drag state, undo/redo, and per-frame mouse transitions can remain public for
+debugging, but normal callers should treat it as owned by the editor functions.
 
 ### `glayout_imgui`
 
@@ -375,7 +381,8 @@ This keeps behavior predictable while still favoring matching aspect ratios.
 A host game should be able to do this:
 
 ```cpp
-std::vector<glayout::Layout> layouts = glayout::load_layout_file(path);
+glayout::ParseResult parsed = glayout::load_layout_file(path);
+std::vector<glayout::Layout> layouts = std::move(parsed.layouts);
 
 const glayout::Layout* layout =
     glayout::find_best_layout(layouts, title_layout_id, render_w, render_h, form_factor);
@@ -387,9 +394,12 @@ For editor users:
 
 ```cpp
 glayout::EditorState editor;
+glayout::EditorInput input;
+glayout::Viewport viewport{0.0f, 0.0f, float(render_w), float(render_h)};
+glayout::Layout& active_layout = layouts[active_layout_index];
 
-glayout::editor_begin_frame(editor, layouts, input, viewport);
-glayout::imgui_editor_panel(editor, layouts); // optional
+glayout::editor_begin_frame(editor, active_layout, input, viewport);
+glayout::imgui::render_integrated_editor(editor, layouts, selected_layout_index); // optional
 
 if (editor.save_requested) {
     glayout::save_layout_file(path, layouts);
@@ -465,6 +475,9 @@ Dependency rules:
 
 - `glayout_core` depends on `gsexp::gsexp` instead of carrying its own Lisp
   parser.
+- Consumers should link `glayout::core` when using CMake `add_subdirectory`.
+- Consumers should link `glayout::imgui` only when the optional ImGui helpers
+  are enabled.
 - Local development may use a sibling `../gsexp` checkout.
 - Consumers may provide `gsexp::gsexp` themselves or point CMake at a gsexp
   source tree.
