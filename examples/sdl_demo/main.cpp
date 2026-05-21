@@ -94,6 +94,27 @@ void draw_textf(SDL_Renderer* renderer, float x, float y, const char* fmt, const
     draw_text(renderer, x, y, buffer);
 }
 
+void draw_grid(SDL_Renderer* renderer, glayout::Viewport viewport, float step) {
+    if (step <= 0.0f)
+        return;
+
+    int index = 1;
+    for (float x = step; x < 1.0f; x += step, ++index) {
+        Uint8 shade = index % 5 == 0 ? 78 : 42;
+        set_color(renderer, shade, shade + 8, shade + 14, 255);
+        float screen_x = viewport.x + x * viewport.w;
+        SDL_RenderLine(renderer, screen_x, viewport.y, screen_x, viewport.y + viewport.h);
+    }
+
+    index = 1;
+    for (float y = step; y < 1.0f; y += step, ++index) {
+        Uint8 shade = index % 5 == 0 ? 78 : 42;
+        set_color(renderer, shade, shade + 8, shade + 14, 255);
+        float screen_y = viewport.y + y * viewport.h;
+        SDL_RenderLine(renderer, viewport.x, screen_y, viewport.x + viewport.w, screen_y);
+    }
+}
+
 void draw_layout(SDL_Renderer* renderer,
                  const glayout::Layout& layout,
                  const glayout::EditorState& editor,
@@ -102,6 +123,9 @@ void draw_layout(SDL_Renderer* renderer,
                  int window_w,
                  int window_h) {
     glayout::Viewport viewport{0.0f, 0.0f, static_cast<float>(window_w), static_cast<float>(window_h)};
+    if (edit_mode && editor.snap_enabled)
+        draw_grid(renderer, viewport, editor.grid_step);
+
     std::vector<glayout::OverlayObject> overlays =
         glayout::editor_collect_overlay_objects(editor, layout, viewport);
 
