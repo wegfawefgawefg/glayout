@@ -172,7 +172,11 @@ int main(int, char**) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("glayout SDL demo", 1280, 720, SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow(
+        "glayout SDL demo",
+        1280,
+        720,
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_UTILITY);
     if (!window) {
         std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
         SDL_Quit();

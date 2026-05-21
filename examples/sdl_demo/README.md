@@ -27,6 +27,14 @@ the build directory if the caller did not provide an ImGui target/source tree.
 Press `E` to enter edit mode; the ImGui layout browser/editor appears while edit
 mode is on.
 
+The demo requests SDL's utility-window type so tiling window managers can float
+it instead of treating it like a normal application window. On i3, add this if
+your config does not already float utility windows:
+
+```i3
+for_window [window_type="utility"] floating enable
+```
+
 The CMake path is intended to work on Linux, macOS, and Windows when SDL3 is
 available through `find_package(SDL3 CONFIG)`. The fallback `pkg-config` path is
 mainly for Unix-like local development.
