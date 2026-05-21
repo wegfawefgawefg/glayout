@@ -8,6 +8,7 @@ option(GLAYOUT_BUILD_EXAMPLES "Build example programs" ON)
 option(GLAYOUT_BUILD_TESTS "Build test programs" ON)
 option(GLAYOUT_BUILD_SDL_DEMO "Build SDL3 demo program when SDL3 is available" ON)
 option(GLAYOUT_WITH_IMGUI "Build optional Dear ImGui helpers" OFF)
+option(GLAYOUT_FETCH_DEMO_IMGUI "Fetch Dear ImGui for the SDL demo when no ImGui is provided" ON)
 set(GLAYOUT_IMGUI_TARGET "" CACHE STRING "Dear ImGui CMake target for optional glayout_imgui")
 set(GLAYOUT_IMGUI_SOURCE_DIR "" CACHE PATH "Optional Dear ImGui source tree used to create an imgui target")
 set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
@@ -22,6 +23,29 @@ if(NOT TARGET gsexp::gsexp)
             "gsexp::gsexp target was not found and GLAYOUT_GSEXP_SOURCE_DIR does not point "
             "to a gsexp source tree: ${GLAYOUT_GSEXP_SOURCE_DIR}")
     endif()
+endif()
+
+if(GLAYOUT_WITH_IMGUI AND NOT GLAYOUT_IMGUI_TARGET AND NOT TARGET imgui AND
+   NOT TARGET ImGui::ImGui AND NOT GLAYOUT_IMGUI_SOURCE_DIR AND GLAYOUT_FETCH_DEMO_IMGUI)
+    include(FetchContent)
+    FetchContent_Declare(
+        imgui_demo_source
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.91.9b
+    )
+    FetchContent_GetProperties(imgui_demo_source)
+    if(NOT imgui_demo_source_POPULATED)
+        if(POLICY CMP0169)
+            cmake_policy(PUSH)
+            cmake_policy(SET CMP0169 OLD)
+        endif()
+        FetchContent_Populate(imgui_demo_source)
+        if(POLICY CMP0169)
+            cmake_policy(POP)
+        endif()
+    endif()
+    set(GLAYOUT_IMGUI_SOURCE_DIR "${imgui_demo_source_SOURCE_DIR}"
+        CACHE PATH "Optional Dear ImGui source tree used to create an imgui target" FORCE)
 endif()
 
 add_library(glayout_core
@@ -161,6 +185,11 @@ if(GLAYOUT_WITH_IMGUI)
 endif()
 
 if(TARGET glayout_sdl_demo AND TARGET glayout_imgui AND GLAYOUT_SDL_DEMO_IMGUI_BACKENDS_AVAILABLE)
+    set_source_files_properties(
+        "${GLAYOUT_IMGUI_SDL3_BACKEND}"
+        "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"
+        PROPERTIES COMPILE_OPTIONS "-Wno-conversion;-Wno-error=conversion"
+    )
     target_sources(glayout_sdl_demo PRIVATE
         "${GLAYOUT_IMGUI_SDL3_BACKEND}"
         "${GLAYOUT_IMGUI_SDLRENDERER3_BACKEND}"

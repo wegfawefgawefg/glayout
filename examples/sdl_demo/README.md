@@ -22,8 +22,10 @@ preview form factor, and draws the resulting rectangles with SDL.
 The demo intentionally treats buttons, panels, and labels as demo-only concepts.
 `glayout` itself only knows about rectangles.
 
-Optional Dear ImGui helpers live in `glayout_imgui`. If CMake is configured with
-`GLAYOUT_WITH_IMGUI=ON` and `GLAYOUT_IMGUI_SOURCE_DIR` points at an ImGui source
-tree that contains the official SDL3 renderer backends, this demo initializes
-those backends and shows the ImGui layout browser/editor while edit mode is on.
-If those backends are not available, the SDL rectangle editor still works.
+The default `dev` preset builds the demo with Dear ImGui by fetching ImGui into
+the build directory if the caller did not provide an ImGui target/source tree.
+Press `E` to enter edit mode; the ImGui layout browser/editor appears while edit
+mode is on.
+
+If configured without ImGui or without SDL3 ImGui backends, the SDL rectangle
+editor still works.

@@ -12,3 +12,4 @@ compile_commands.json
 *.dll
 *.exe
 *.out
+imgui.ini

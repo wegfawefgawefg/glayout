@@ -469,9 +469,10 @@ Dependency rules:
 - Consumers may provide `gsexp::gsexp` themselves or point CMake at a gsexp
   source tree.
 - `GLAYOUT_WITH_IMGUI=ON` expects Dear ImGui to be provided by the caller/build,
-  not vendored by `glayout`.
+  or fetched into the build tree for the SDL demo.
 - The CMake hook may be a provided target or a caller-provided
-  `GLAYOUT_IMGUI_SOURCE_DIR`. Vendoring ImGui into this repo is out of scope.
+  `GLAYOUT_IMGUI_SOURCE_DIR`. Committing ImGui sources into this repo is out of
+  scope.
 - `GLAYOUT_BUILD_SDL_DEMO=ON` may use `find_package(SDL3)`.
 - If SDL3 is unavailable, the SDL demo should be disabled by default unless the
   user explicitly requested it.

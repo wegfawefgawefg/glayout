@@ -16,10 +16,14 @@ in [docs/spec.md](docs/spec.md).
 default CMake looks for `../gsexp`, or you can provide an existing
 `gsexp::gsexp` target before adding `glayout`.
 
-Optional Dear ImGui helpers build only when `GLAYOUT_WITH_IMGUI=ON` and the
-consumer provides an ImGui CMake target through `GLAYOUT_IMGUI_TARGET`, `imgui`,
-or `ImGui::ImGui`. For simple source-tree integration, callers can also pass
+Optional Dear ImGui helpers build when `GLAYOUT_WITH_IMGUI=ON`. Consumers can
+provide an ImGui CMake target through `GLAYOUT_IMGUI_TARGET`, `imgui`, or
+`ImGui::ImGui`. For simple source-tree integration, callers can also pass
 `GLAYOUT_IMGUI_SOURCE_DIR=/path/to/imgui`.
+
+The default `dev` preset enables ImGui for the SDL demo and fetches Dear ImGui
+into the build directory if no ImGui source/target is provided. This is
+demo-only; no ImGui sources are committed into `glayout`.
 
 ## Build
 
@@ -41,10 +45,9 @@ The build script also runs the core test executable through CTest.
 ./scripts/run_sdl_demo.sh
 ```
 
-In VS Code, F5 launches the SDL demo through `.vscode/launch.json`.
+In VS Code, F5 launches the SDL demo through `.vscode/launch.json`. With the
+default `dev` preset, this is the SDL3 + ImGui demo path.
 
 SDL demo controls are documented in
 [examples/sdl_demo/README.md](examples/sdl_demo/README.md).
-When configured with `GLAYOUT_WITH_IMGUI=ON` and an ImGui source tree containing
-the SDL3 renderer backends, the SDL demo also shows the optional ImGui panels in
-edit mode.
+Press `E` in the demo to toggle edit mode; the ImGui panels appear in edit mode.
