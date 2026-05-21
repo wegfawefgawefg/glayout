@@ -209,6 +209,14 @@ int main(int, char**) {
 
     while (running) {
         glayout::EditorInput editor_input;
+#if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
+        const ImGuiIO& imgui_io = ImGui::GetIO();
+        bool imgui_wants_mouse = imgui_io.WantCaptureMouse;
+        bool imgui_wants_keyboard = imgui_io.WantCaptureKeyboard;
+#else
+        bool imgui_wants_mouse = false;
+        bool imgui_wants_keyboard = false;
+#endif
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
 #if defined(GLAYOUT_SDL_DEMO_WITH_IMGUI)
@@ -217,6 +225,9 @@ int main(int, char**) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+                if (imgui_wants_keyboard && event.key.key != SDLK_ESCAPE)
+                    continue;
+
                 switch (event.key.key) {
                     case SDLK_ESCAPE: running = false; break;
                     case SDLK_TAB:
@@ -278,7 +289,7 @@ int main(int, char**) {
         SDL_MouseButtonFlags buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
         editor_input.mouse_x = mouse_x;
         editor_input.mouse_y = mouse_y;
-        editor_input.left_down = (buttons & SDL_BUTTON_LMASK) != 0;
+        editor_input.left_down = !imgui_wants_mouse && (buttons & SDL_BUTTON_LMASK) != 0;
 
         int window_w = 0;
         int window_h = 0;
