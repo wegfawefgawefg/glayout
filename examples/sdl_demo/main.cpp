@@ -93,14 +93,15 @@ void draw_layout(SDL_Renderer* renderer,
                  bool edit_mode,
                  int window_w,
                  int window_h) {
-    glayout::Rect viewport{0.0f, 0.0f, static_cast<float>(window_w), static_cast<float>(window_h)};
+    glayout::Viewport viewport{0.0f, 0.0f, static_cast<float>(window_w), static_cast<float>(window_h)};
+    std::vector<glayout::OverlayObject> overlays =
+        glayout::editor_collect_overlay_objects(editor, layout, viewport);
 
-    for (int i = 0; i < static_cast<int>(layout.objects.size()); ++i) {
-        const glayout::Object& object = layout.objects[static_cast<std::size_t>(i)];
-        glayout::Rect screen_rect = glayout::map_rect(viewport, object.rect);
-        SDL_FRect rect = to_sdl_rect(screen_rect);
+    for (const glayout::OverlayObject& overlay : overlays) {
+        const glayout::Object& object = layout.objects[static_cast<std::size_t>(overlay.object_index)];
+        SDL_FRect rect = to_sdl_rect(overlay.rect);
 
-        if (i == focused_object) {
+        if (overlay.object_index == focused_object) {
             set_color(renderer, 210, 164, 55, 180);
         } else if (object.label.find("panel") != std::string::npos) {
             set_color(renderer, 58, 80, 94, 180);
@@ -109,7 +110,7 @@ void draw_layout(SDL_Renderer* renderer,
         }
         SDL_RenderFillRect(renderer, &rect);
 
-        if (edit_mode && glayout::editor_is_selected(editor, i)) {
+        if (edit_mode && overlay.selected) {
             set_color(renderer, 235, 80, 70, 255);
         } else {
             set_color(renderer, 210, 220, 225, 255);
@@ -118,6 +119,16 @@ void draw_layout(SDL_Renderer* renderer,
 
         set_color(renderer, 245, 245, 245, 255);
         draw_text(renderer, rect.x + 8.0f, rect.y + 8.0f, object.label.c_str());
+    }
+
+    if (edit_mode) {
+        std::vector<glayout::OverlayHandle> handles =
+            glayout::editor_collect_overlay_handles(editor, layout, viewport);
+        set_color(renderer, 255, 95, 82, 255);
+        for (const glayout::OverlayHandle& handle : handles) {
+            SDL_FRect rect = to_sdl_rect(handle.rect);
+            SDL_RenderFillRect(renderer, &rect);
+        }
     }
 }
 

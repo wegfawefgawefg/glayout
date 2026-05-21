@@ -51,6 +51,19 @@ struct EditorFrameResult {
     bool selection_changed = false;
 };
 
+struct OverlayObject {
+    int object_index = -1;
+    Rect rect;
+    bool selected = false;
+    bool primary = false;
+};
+
+struct OverlayHandle {
+    int object_index = -1;
+    Handle handle = Handle::None;
+    Rect rect;
+};
+
 struct EditorState {
     bool dirty = false;
     bool save_requested = false;
@@ -95,5 +108,12 @@ void editor_mark_saved(EditorState& editor);
 void editor_commit_undo(EditorState& editor, const Layout& layout);
 bool editor_undo(EditorState& editor, Layout& layout);
 bool editor_redo(EditorState& editor, Layout& layout);
+
+std::vector<OverlayObject> editor_collect_overlay_objects(const EditorState& editor,
+                                                          const Layout& layout,
+                                                          Viewport viewport);
+std::vector<OverlayHandle> editor_collect_overlay_handles(const EditorState& editor,
+                                                          const Layout& layout,
+                                                          Viewport viewport);
 
 } // namespace glayout

@@ -305,6 +305,25 @@ void test_editor_copy_paste() {
     require(editor.selection.size() == 1 && editor.selection[0] == 2, "editor paste selects copy");
 }
 
+void test_editor_overlay_data() {
+    glayout::Layout layout = make_editor_layout();
+    glayout::EditorState editor;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_select_single(editor, 0);
+    std::vector<glayout::OverlayObject> objects =
+        glayout::editor_collect_overlay_objects(editor, layout, viewport);
+    require(objects.size() == 2, "overlay object count");
+    require(objects[0].selected, "overlay selected object");
+    require(objects[0].primary, "overlay primary object");
+    require(nearly_equal(objects[0].rect.x, 10.0f), "overlay object x");
+
+    std::vector<glayout::OverlayHandle> handles =
+        glayout::editor_collect_overlay_handles(editor, layout, viewport);
+    require(handles.size() == 8, "overlay handles for selected object");
+    require(handles[0].object_index == 0, "overlay handle object index");
+}
+
 } // namespace
 
 int main() {
@@ -316,6 +335,7 @@ int main() {
     test_editor_drag_and_undo();
     test_editor_resize_delete_and_save_request();
     test_editor_copy_paste();
+    test_editor_overlay_data();
 
     std::cout << "glayout_core_tests passed\n";
     return 0;

@@ -26,6 +26,7 @@ endif()
 
 add_library(glayout_core
     src/editor.cpp
+    src/editor_overlay.cpp
     src/layout.cpp
 )
 
