@@ -17,6 +17,12 @@ redo, and save those rectangles.
 routing, navigation, clipping, scrolling, styling, or the app loop. The host
 decides what each rectangle means.
 
+## Screenshot
+
+<p>
+  <img src="assets/screenshot.png" alt="glayout SDL demo screenshot" width="640">
+</p>
+
 ## Targets
 
 - `glayout::core`: layout structs, parsing/writing, layout matching, rectangle
