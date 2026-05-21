@@ -1,11 +1,139 @@
 #include "glayout/layout.hpp"
 
+#include <gsexp/sexp.hpp>
+
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <limits>
+#include <sstream>
+#include <unordered_set>
 
 namespace glayout {
 namespace {
+
+constexpr float kAspectWeight = 1000.0f;
+
+struct LayoutKey {
+    int id = 0;
+    int width = 0;
+    int height = 0;
+    FormFactor form_factor = FormFactor::Desktop;
+};
+
+bool same_layout_key(const Layout& layout, const LayoutKey& key) {
+    return layout.id == key.id && layout.width == key.width && layout.height == key.height &&
+           layout.form_factor == key.form_factor;
+}
+
+LayoutKey layout_key(const Layout& layout) {
+    return LayoutKey{layout.id, layout.width, layout.height, layout.form_factor};
+}
+
+void add_warning(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1, int column = 1) {
+    diagnostics.push_back(Diagnostic{DiagnosticSeverity::Warning, std::move(message), line, column});
+}
+
+void add_error(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1, int column = 1) {
+    diagnostics.push_back(Diagnostic{DiagnosticSeverity::Error, std::move(message), line, column});
+}
+
+bool has_error(const std::vector<Diagnostic>& diagnostics) {
+    for (const Diagnostic& diagnostic : diagnostics) {
+        if (diagnostic.severity == DiagnosticSeverity::Error)
+            return true;
+    }
+    return false;
+}
+
+std::string layout_key_string(const Layout& layout) {
+    return std::to_string(layout.id) + ":" + std::to_string(layout.width) + "x" +
+           std::to_string(layout.height) + ":" + std::string(to_string(layout.form_factor));
+}
+
+bool parse_resolution(const gsexp::Value& layout_node, int& width, int& height) {
+    const gsexp::Value* res_node = gsexp::find_child(layout_node, "resolution");
+    if (!res_node)
+        return false;
+
+    std::optional<int> parsed_width = gsexp::extract_int(*res_node, "width");
+    std::optional<int> parsed_height = gsexp::extract_int(*res_node, "height");
+    if (!parsed_width || !parsed_height)
+        return false;
+
+    width = *parsed_width;
+    height = *parsed_height;
+    return true;
+}
+
+FormFactor parse_form_factor(const gsexp::Value& layout_node, std::vector<Diagnostic>& diagnostics) {
+    const gsexp::Value* form_node = gsexp::find_child(layout_node, "form_factor");
+    if (!form_node || form_node->list.size() < 2)
+        return FormFactor::Desktop;
+
+    const gsexp::Value& value = form_node->list[1];
+    if (value.type != gsexp::ValueType::Symbol && value.type != gsexp::ValueType::String) {
+        add_warning(diagnostics, "layout form_factor is not a symbol/string; defaulting to desktop");
+        return FormFactor::Desktop;
+    }
+
+    return form_factor_from_string(value.text, &diagnostics);
+}
+
+bool parse_object(const gsexp::Value& object_node, Object& out) {
+    std::optional<int> id = gsexp::extract_int(object_node, "id");
+    std::optional<std::string> label = gsexp::extract_string(object_node, "label");
+    std::optional<float> x = gsexp::extract_float(object_node, "x");
+    std::optional<float> y = gsexp::extract_float(object_node, "y");
+    std::optional<float> w = gsexp::extract_float(object_node, "w");
+    std::optional<float> h = gsexp::extract_float(object_node, "h");
+
+    if (!id || !label || !x || !y || !w || !h)
+        return false;
+
+    out = Object{*id, *label, Rect{*x, *y, *w, *h}};
+    return true;
+}
+
+bool parse_layout_node(const gsexp::Value& layout_node,
+                       Layout& out,
+                       std::vector<Diagnostic>& diagnostics) {
+    std::optional<int> id = gsexp::extract_int(layout_node, "id");
+    std::optional<std::string> label = gsexp::extract_string(layout_node, "label");
+
+    int width = 0;
+    int height = 0;
+    if (!id || !label || !parse_resolution(layout_node, width, height))
+        return false;
+
+    Layout layout;
+    layout.id = *id;
+    layout.label = *label;
+    layout.width = width;
+    layout.height = height;
+    layout.form_factor = parse_form_factor(layout_node, diagnostics);
+
+    const gsexp::Value* objects_node = gsexp::find_child(layout_node, "objects");
+    if (objects_node && objects_node->type == gsexp::ValueType::List) {
+        for (std::size_t index = 1; index < objects_node->list.size(); ++index) {
+            const gsexp::Value& object_node = objects_node->list[index];
+            if (object_node.type != gsexp::ValueType::List || object_node.list.empty())
+                continue;
+            if (!gsexp::is_symbol(object_node.list.front(), "object"))
+                continue;
+
+            Object object;
+            if (parse_object(object_node, object)) {
+                layout.objects.push_back(std::move(object));
+            } else {
+                add_warning(diagnostics, "skipping malformed object in layout " + layout.label);
+            }
+        }
+    }
+
+    out = std::move(layout);
+    return true;
+}
 
 float layout_score(const Layout& layout, int target_width, int target_height) {
     if (layout.width <= 0 || layout.height <= 0 || target_width <= 0 || target_height <= 0)
@@ -18,7 +146,7 @@ float layout_score(const Layout& layout, int target_width, int target_height) {
     float dy = static_cast<float>(target_height - layout.height);
     float resolution_distance = std::sqrt(dx * dx + dy * dy);
 
-    return aspect_distance * 1000.0f + resolution_distance;
+    return aspect_distance * kAspectWeight + resolution_distance;
 }
 
 const Layout* find_best_matching_form_factor(const std::vector<Layout>& layouts,
@@ -47,6 +175,55 @@ const Layout* find_best_matching_form_factor(const std::vector<Layout>& layouts,
 }
 
 } // namespace
+
+std::string_view to_string(FormFactor form_factor) {
+    switch (form_factor) {
+        case FormFactor::Desktop: return "desktop";
+        case FormFactor::Tablet: return "tablet";
+        case FormFactor::Phone: return "phone";
+    }
+    return "desktop";
+}
+
+FormFactor form_factor_from_string(std::string_view text, std::vector<Diagnostic>* diagnostics) {
+    if (text == "desktop")
+        return FormFactor::Desktop;
+    if (text == "tablet")
+        return FormFactor::Tablet;
+    if (text == "phone")
+        return FormFactor::Phone;
+
+    if (diagnostics) {
+        add_warning(*diagnostics,
+                    "unknown form_factor '" + std::string(text) + "'; defaulting to desktop");
+    }
+    return FormFactor::Desktop;
+}
+
+Rect map_rect(Rect parent, Rect child_normalized) {
+    return Rect{
+        parent.x + child_normalized.x * parent.w,
+        parent.y + child_normalized.y * parent.h,
+        child_normalized.w * parent.w,
+        child_normalized.h * parent.h,
+    };
+}
+
+bool intersects(Rect a, Rect b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+Rect intersection(Rect a, Rect b) {
+    float left = std::max(a.x, b.x);
+    float top = std::max(a.y, b.y);
+    float right = std::min(a.x + a.w, b.x + b.w);
+    float bottom = std::min(a.y + a.h, b.y + b.h);
+
+    if (right <= left || bottom <= top)
+        return Rect{};
+
+    return Rect{left, top, right - left, bottom - top};
+}
 
 void add_or_replace_object(Layout& layout, const Object& object) {
     for (Object& existing : layout.objects) {
@@ -83,6 +260,29 @@ bool remove_object(Layout& layout, std::string_view label) {
 
     layout.objects.erase(it, layout.objects.end());
     return true;
+}
+
+void add_or_replace_layout(std::vector<Layout>& layouts, const Layout& layout) {
+    LayoutKey key = layout_key(layout);
+    bool replaced = false;
+
+    for (auto it = layouts.begin(); it != layouts.end();) {
+        if (!same_layout_key(*it, key)) {
+            ++it;
+            continue;
+        }
+
+        if (!replaced) {
+            *it = layout;
+            replaced = true;
+            ++it;
+        } else {
+            it = layouts.erase(it);
+        }
+    }
+
+    if (!replaced)
+        layouts.push_back(layout);
 }
 
 const Object* find_object(const Layout& layout, int object_id) {
@@ -123,6 +323,124 @@ const Layout* find_best_layout(const std::vector<Layout>& layouts,
                                           target_height,
                                           preferred_form_factor,
                                           false);
+}
+
+ParseResult parse_layouts(std::string_view text) {
+    ParseResult result;
+    gsexp::ParseResult parsed = gsexp::parse(text);
+
+    for (const gsexp::Diagnostic& diagnostic : parsed.diagnostics) {
+        DiagnosticSeverity severity = diagnostic.severity == gsexp::DiagnosticSeverity::Warning
+                                          ? DiagnosticSeverity::Warning
+                                          : DiagnosticSeverity::Error;
+        result.diagnostics.push_back(Diagnostic{
+            severity,
+            diagnostic.message,
+            diagnostic.line,
+            diagnostic.column,
+        });
+    }
+
+    if (!parsed.ok) {
+        result.ok = false;
+        return result;
+    }
+
+    const gsexp::Value* root = nullptr;
+    for (const gsexp::Value& value : parsed.values) {
+        if (value.type != gsexp::ValueType::List || value.list.empty())
+            continue;
+        if (gsexp::is_symbol(value.list.front(), "ui_layouts")) {
+            root = &value;
+            break;
+        }
+    }
+
+    if (!root) {
+        add_error(result.diagnostics, "missing ui_layouts root");
+        result.ok = false;
+        return result;
+    }
+
+    std::unordered_set<std::string> seen_keys;
+    for (std::size_t index = 1; index < root->list.size(); ++index) {
+        const gsexp::Value& entry = root->list[index];
+        if (entry.type != gsexp::ValueType::List || entry.list.empty())
+            continue;
+        if (!gsexp::is_symbol(entry.list.front(), "layout"))
+            continue;
+
+        Layout layout;
+        if (!parse_layout_node(entry, layout, result.diagnostics)) {
+            add_warning(result.diagnostics, "skipping malformed layout");
+            continue;
+        }
+
+        std::string key = layout_key_string(layout);
+        if (seen_keys.contains(key)) {
+            add_warning(result.diagnostics, "duplicate layout variant " + key + "; latest wins on update");
+        }
+        seen_keys.insert(std::move(key));
+        result.layouts.push_back(std::move(layout));
+    }
+
+    result.ok = !has_error(result.diagnostics);
+    return result;
+}
+
+std::string write_layouts(const std::vector<Layout>& layouts) {
+    std::ostringstream out;
+    out << "(ui_layouts\n";
+
+    for (const Layout& layout : layouts) {
+        out << "  (layout\n";
+        out << "    (id " << layout.id << ")\n";
+        out << "    (label " << gsexp::quote_string(layout.label) << ")\n";
+        out << "    (resolution (width " << layout.width << ") (height " << layout.height
+            << "))\n";
+        out << "    (form_factor " << to_string(layout.form_factor) << ")\n";
+        out << "    (objects\n";
+        for (const Object& object : layout.objects) {
+            out << "      (object (id " << object.id << ") (label "
+                << gsexp::quote_string(object.label) << ") ";
+            out << "(x " << object.rect.x << ") (y " << object.rect.y << ") ";
+            out << "(w " << object.rect.w << ") (h " << object.rect.h << "))\n";
+        }
+        out << "    )\n";
+        out << "  )\n";
+    }
+
+    out << ")\n";
+    return out.str();
+}
+
+ParseResult load_layout_file(const std::filesystem::path& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        ParseResult result;
+        add_error(result.diagnostics, "failed to open layout file: " + path.string());
+        return result;
+    }
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    return parse_layouts(buffer.str());
+}
+
+bool save_layout_file(const std::filesystem::path& path, const std::vector<Layout>& layouts) {
+    if (path.has_parent_path()) {
+        std::error_code ec;
+        std::filesystem::create_directories(path.parent_path(), ec);
+        if (ec)
+            return false;
+    }
+
+    std::ofstream file(path);
+    if (!file.is_open())
+        return false;
+
+    file << write_layouts(layouts);
+    return file.good();
 }
 
 } // namespace glayout

@@ -13,10 +13,7 @@ int main() {
     glayout::Object play_button{};
     play_button.id = 1;
     play_button.label = "play_button";
-    play_button.x = 0.4f;
-    play_button.y = 0.45f;
-    play_button.w = 0.2f;
-    play_button.h = 0.08f;
+    play_button.rect = glayout::Rect{0.4f, 0.45f, 0.2f, 0.08f};
     glayout::add_or_replace_object(layouts[1], play_button);
 
     const glayout::Layout* layout =
@@ -31,9 +28,13 @@ int main() {
 
     const glayout::Object* object = glayout::find_object(*layout, "play_button");
     if (object) {
-        std::cout << "Found object: " << object->label << " at " << object->x << ", "
-                  << object->y << "\n";
+        std::cout << "Found object: " << object->label << " at " << object->rect.x << ", "
+                  << object->rect.y << "\n";
     }
+
+    std::string text = glayout::write_layouts(layouts);
+    glayout::ParseResult parsed = glayout::parse_layouts(text);
+    std::cout << "Round-tripped layouts: " << parsed.layouts.size() << "\n";
 
     return 0;
 }

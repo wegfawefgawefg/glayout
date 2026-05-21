@@ -15,6 +15,7 @@
         "GLAYOUT_STRICT": true,
         "GLAYOUT_WARN_AS_ERROR": true,
         "GLAYOUT_BUILD_EXAMPLES": true,
+        "GLAYOUT_BUILD_TESTS": true,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     }

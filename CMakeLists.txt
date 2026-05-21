@@ -5,6 +5,7 @@ project(glayout VERSION 0.1.0 LANGUAGES CXX)
 option(GLAYOUT_STRICT "Enable strict compiler warnings" ON)
 option(GLAYOUT_WARN_AS_ERROR "Treat warnings as errors" OFF)
 option(GLAYOUT_BUILD_EXAMPLES "Build example programs" ON)
+option(GLAYOUT_BUILD_TESTS "Build test programs" ON)
 option(GLAYOUT_WITH_IMGUI "Build optional Dear ImGui helpers" OFF)
 set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
     CACHE PATH "Path to a gsexp source tree when gsexp::gsexp is not already available")
@@ -33,14 +34,18 @@ target_include_directories(glayout_core
 target_compile_features(glayout_core PUBLIC cxx_std_20)
 target_link_libraries(glayout_core PUBLIC gsexp::gsexp)
 
-if(GLAYOUT_STRICT)
+function(glayout_apply_warnings target_name)
+    if(NOT GLAYOUT_STRICT)
+        return()
+    endif()
+
     if(MSVC)
-        target_compile_options(glayout_core PRIVATE /W4)
+        target_compile_options(${target_name} PRIVATE /W4)
         if(GLAYOUT_WARN_AS_ERROR)
-            target_compile_options(glayout_core PRIVATE /WX)
+            target_compile_options(${target_name} PRIVATE /WX)
         endif()
     else()
-        target_compile_options(glayout_core PRIVATE
+        target_compile_options(${target_name} PRIVATE
             -Wall
             -Wextra
             -Wpedantic
@@ -48,33 +53,27 @@ if(GLAYOUT_STRICT)
             -Wshadow
         )
         if(GLAYOUT_WARN_AS_ERROR)
-            target_compile_options(glayout_core PRIVATE -Werror)
+            target_compile_options(${target_name} PRIVATE -Werror)
         endif()
     endif()
-endif()
+endfunction()
+
+glayout_apply_warnings(glayout_core)
 
 if(GLAYOUT_BUILD_EXAMPLES)
     add_executable(glayout_demo examples/glayout_demo.cpp)
     target_link_libraries(glayout_demo PRIVATE glayout_core)
     target_compile_features(glayout_demo PRIVATE cxx_std_20)
+    glayout_apply_warnings(glayout_demo)
+endif()
 
-    if(GLAYOUT_STRICT)
-        if(MSVC)
-            target_compile_options(glayout_demo PRIVATE /W4)
-            if(GLAYOUT_WARN_AS_ERROR)
-                target_compile_options(glayout_demo PRIVATE /WX)
-            endif()
-        else()
-            target_compile_options(glayout_demo PRIVATE
-                -Wall
-                -Wextra
-                -Wpedantic
-                -Wconversion
-                -Wshadow
-            )
-            if(GLAYOUT_WARN_AS_ERROR)
-                target_compile_options(glayout_demo PRIVATE -Werror)
-            endif()
-        endif()
-    endif()
+if(GLAYOUT_BUILD_TESTS)
+    enable_testing()
+
+    add_executable(glayout_core_tests tests/core_tests.cpp)
+    target_link_libraries(glayout_core_tests PRIVATE glayout_core)
+    target_compile_features(glayout_core_tests PRIVATE cxx_std_20)
+    glayout_apply_warnings(glayout_core_tests)
+
+    add_test(NAME glayout_core_tests COMMAND glayout_core_tests)
 endif()

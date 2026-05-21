@@ -22,6 +22,8 @@ default CMake looks for `../gsexp`, or you can provide an existing
 ./scripts/build.sh
 ```
 
+The build script also runs the core test executable through CTest.
+
 ## Run Demo
 
 ```sh
