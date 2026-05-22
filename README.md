@@ -91,13 +91,14 @@ the demo build. Consumers should provide their own ImGui target or source tree.
 ## Basic Use
 
 ```cpp
-glayout::ParseResult parsed = glayout::load_layout_file("layouts.lisp");
+glayout::LayoutStore store;
+glayout::ParseResult parsed = store.load_file("layouts.lisp");
+
 if (!parsed.ok) {
     // Print parsed.diagnostics.
 }
 
-const glayout::Layout* layout = glayout::find_best_layout(
-    parsed.layouts,
+const glayout::Layout* layout = store.find_best(
     title_page_id,
     render_width,
     render_height,
@@ -130,7 +131,7 @@ for (const glayout::OverlayObject& object :
 }
 
 if (editor.save_requested) {
-    if (glayout::save_layout_file(path, layouts))
+    if (store.save_file(path))
         glayout::editor_mark_saved(editor);
 }
 ```

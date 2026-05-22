@@ -64,6 +64,36 @@ void test_matching() {
     require(fallback->width == 1920 && fallback->height == 1080, "tablet fallback uses best score");
 }
 
+void test_layout_store() {
+    glayout::LayoutStore store;
+    store.add_or_replace(
+        glayout::Layout{100, "Title", 1280, 720, glayout::FormFactor::Desktop, {}});
+    store.add_or_replace(
+        glayout::Layout{100, "Title HD", 1920, 1080, glayout::FormFactor::Desktop, {}});
+    store.add_or_replace(
+        glayout::Layout{100, "Title Phone", 1080, 1920, glayout::FormFactor::Phone, {}});
+
+    const glayout::Layout* best = store.find_best(100, 1920, 1080, glayout::FormFactor::Desktop);
+    require(best != nullptr, "layout store best match exists");
+    require(best->label == "Title HD", "layout store best match");
+
+    glayout::Layout* exact = store.find_exact(100, 1080, 1920, glayout::FormFactor::Phone);
+    require(exact != nullptr, "layout store exact match exists");
+    exact->label = "Phone Edited";
+
+    const glayout::Layout* exact_const =
+        store.find_exact(100, 1080, 1920, glayout::FormFactor::Phone);
+    require(exact_const != nullptr && exact_const->label == "Phone Edited",
+            "layout store exact mutable");
+
+    glayout::Layout replacement{100, "Title Replaced", 1920, 1080, glayout::FormFactor::Desktop,
+                                {}};
+    store.add_or_replace(replacement);
+    best = glayout::find_best_layout(store, 100, 1920, 1080, glayout::FormFactor::Desktop);
+    require(best != nullptr && best->label == "Title Replaced", "layout store replace");
+    require(store.layouts.size() == 3, "layout store keeps unique variants");
+}
+
 void test_parse_write() {
     const std::string text = R"(
 (ui_layouts
@@ -178,26 +208,16 @@ void test_editor_drag_and_undo() {
     editor.snap_enabled = false;
     glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
 
-    glayout::editor_begin_frame(editor,
-                                layout,
-                                glayout::EditorInput{20.0f, 20.0f, true},
-                                viewport);
-    glayout::EditorFrameResult drag_result =
-        glayout::editor_begin_frame(editor,
-                                    layout,
-                                    glayout::EditorInput{30.0f, 30.0f, true},
-                                    viewport);
-    glayout::editor_begin_frame(editor,
-                                layout,
-                                glayout::EditorInput{30.0f, 30.0f, false},
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{20.0f, 20.0f, true}, viewport);
+    glayout::EditorFrameResult drag_result = glayout::editor_begin_frame(
+        editor, layout, glayout::EditorInput{30.0f, 30.0f, true}, viewport);
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{30.0f, 30.0f, false},
                                 viewport);
 
     require(drag_result.changed, "editor drag changes layout");
     require(editor.dirty, "editor drag marks dirty");
-    require(layout.objects[0].rect.x > 0.19f && layout.objects[0].rect.x < 0.21f,
-            "editor drag x");
-    require(layout.objects[0].rect.y > 0.19f && layout.objects[0].rect.y < 0.21f,
-            "editor drag y");
+    require(layout.objects[0].rect.x > 0.19f && layout.objects[0].rect.x < 0.21f, "editor drag x");
+    require(layout.objects[0].rect.y > 0.19f && layout.objects[0].rect.y < 0.21f, "editor drag y");
     require(editor.undo_stack.size() == 1, "editor drag commits undo");
 
     require(glayout::editor_undo(editor, layout), "editor undo succeeds");
@@ -213,48 +233,35 @@ void test_editor_resize_delete_and_save_request() {
     editor.snap_enabled = false;
     glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
 
-    glayout::editor_begin_frame(editor,
-                                layout,
-                                glayout::EditorInput{30.0f, 30.0f, true},
-                                viewport);
-    glayout::editor_begin_frame(editor,
-                                layout,
-                                glayout::EditorInput{40.0f, 40.0f, true},
-                                viewport);
-    glayout::editor_begin_frame(editor,
-                                layout,
-                                glayout::EditorInput{40.0f, 40.0f, false},
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{30.0f, 30.0f, true}, viewport);
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{40.0f, 40.0f, true}, viewport);
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{40.0f, 40.0f, false},
                                 viewport);
 
     require(layout.objects[0].rect.w > 0.29f, "editor resize width");
     require(layout.objects[0].rect.h > 0.29f, "editor resize height");
 
-    glayout::EditorFrameResult save_result =
-        glayout::editor_begin_frame(editor,
-                                    layout,
-                                    glayout::EditorInput{0.0f, 0.0f, false, false, false, true},
-                                    viewport);
+    glayout::EditorFrameResult save_result = glayout::editor_begin_frame(
+        editor, layout, glayout::EditorInput{0.0f, 0.0f, false, false, false, true}, viewport);
     require(save_result.save_requested, "editor save request result");
     require(editor.save_requested, "editor save request state");
     glayout::editor_mark_saved(editor);
     require(!editor.dirty && !editor.save_requested, "editor mark saved");
 
     glayout::editor_select_single(editor, 1);
-    glayout::EditorFrameResult delete_result =
-        glayout::editor_begin_frame(editor,
-                                    layout,
-                                    glayout::EditorInput{
-                                        0.0f,
-                                        0.0f,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        true,
-                                    },
-                                    viewport);
+    glayout::EditorFrameResult delete_result = glayout::editor_begin_frame(editor, layout,
+                                                                           glayout::EditorInput{
+                                                                               0.0f,
+                                                                               0.0f,
+                                                                               false,
+                                                                               false,
+                                                                               false,
+                                                                               false,
+                                                                               false,
+                                                                               false,
+                                                                               true,
+                                                                           },
+                                                                           viewport);
     require(delete_result.changed, "editor delete changes layout");
     require(layout.objects.size() == 1, "editor delete removes object");
 }
@@ -265,8 +272,7 @@ void test_editor_copy_paste() {
     glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
 
     glayout::editor_select_single(editor, 0);
-    glayout::editor_begin_frame(editor,
-                                layout,
+    glayout::editor_begin_frame(editor, layout,
                                 glayout::EditorInput{
                                     0.0f,
                                     0.0f,
@@ -282,23 +288,21 @@ void test_editor_copy_paste() {
                                 viewport);
     require(editor.clipboard.size() == 1, "editor copy stores object");
 
-    glayout::EditorFrameResult paste_result =
-        glayout::editor_begin_frame(editor,
-                                    layout,
-                                    glayout::EditorInput{
-                                        0.0f,
-                                        0.0f,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        false,
-                                        true,
-                                    },
-                                    viewport);
+    glayout::EditorFrameResult paste_result = glayout::editor_begin_frame(editor, layout,
+                                                                          glayout::EditorInput{
+                                                                              0.0f,
+                                                                              0.0f,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              false,
+                                                                              true,
+                                                                          },
+                                                                          viewport);
     require(paste_result.changed, "editor paste changes layout");
     require(layout.objects.size() == 3, "editor paste adds object");
     require(layout.objects[2].id != layout.objects[0].id, "editor paste generates id");
@@ -313,8 +317,7 @@ void test_editor_handles_oversized_rects() {
     glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
 
     glayout::editor_select_single(editor, 0);
-    glayout::editor_begin_frame(editor,
-                                layout,
+    glayout::editor_begin_frame(editor, layout,
                                 glayout::EditorInput{
                                     0.0f,
                                     0.0f,
@@ -328,8 +331,7 @@ void test_editor_handles_oversized_rects() {
                                     true,
                                 },
                                 viewport);
-    glayout::editor_begin_frame(editor,
-                                layout,
+    glayout::editor_begin_frame(editor, layout,
                                 glayout::EditorInput{
                                     0.0f,
                                     0.0f,
@@ -374,6 +376,7 @@ void test_editor_overlay_data() {
 int main() {
     test_rect_mapping();
     test_matching();
+    test_layout_store();
     test_parse_write();
     test_demo_layout_file();
     test_replace_helpers();

@@ -1,10 +1,9 @@
 #include "glayout/layout.hpp"
 
-#include <gsexp/sexp.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <gsexp/sexp.hpp>
 #include <limits>
 #include <random>
 #include <sstream>
@@ -31,11 +30,14 @@ LayoutKey layout_key(const Layout& layout) {
     return LayoutKey{layout.id, layout.width, layout.height, layout.form_factor};
 }
 
-void add_warning(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1, int column = 1) {
-    diagnostics.push_back(Diagnostic{DiagnosticSeverity::Warning, std::move(message), line, column});
+void add_warning(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1,
+                 int column = 1) {
+    diagnostics.push_back(
+        Diagnostic{DiagnosticSeverity::Warning, std::move(message), line, column});
 }
 
-void add_error(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1, int column = 1) {
+void add_error(std::vector<Diagnostic>& diagnostics, std::string message, int line = 1,
+               int column = 1) {
     diagnostics.push_back(Diagnostic{DiagnosticSeverity::Error, std::move(message), line, column});
 }
 
@@ -155,10 +157,8 @@ float layout_score(const Layout& layout, int target_width, int target_height) {
     return aspect_distance * kAspectWeight + resolution_distance;
 }
 
-const Layout* find_best_matching_form_factor(const std::vector<Layout>& layouts,
-                                             int layout_id,
-                                             int target_width,
-                                             int target_height,
+const Layout* find_best_matching_form_factor(const std::vector<Layout>& layouts, int layout_id,
+                                             int target_width, int target_height,
                                              FormFactor preferred_form_factor,
                                              bool require_form_factor) {
     const Layout* best = nullptr;
@@ -184,9 +184,12 @@ const Layout* find_best_matching_form_factor(const std::vector<Layout>& layouts,
 
 std::string_view to_string(FormFactor form_factor) {
     switch (form_factor) {
-        case FormFactor::Desktop: return "desktop";
-        case FormFactor::Tablet: return "tablet";
-        case FormFactor::Phone: return "phone";
+    case FormFactor::Desktop:
+        return "desktop";
+    case FormFactor::Tablet:
+        return "tablet";
+    case FormFactor::Phone:
+        return "phone";
     }
     return "desktop";
 }
@@ -243,11 +246,8 @@ void add_or_replace_object(Layout& layout, const Object& object) {
 }
 
 bool remove_object(Layout& layout, int object_id) {
-    auto it = std::remove_if(layout.objects.begin(),
-                             layout.objects.end(),
-                             [object_id](const Object& object) {
-                                 return object.id == object_id;
-                             });
+    auto it = std::remove_if(layout.objects.begin(), layout.objects.end(),
+                             [object_id](const Object& object) { return object.id == object_id; });
     if (it == layout.objects.end())
         return false;
 
@@ -256,11 +256,8 @@ bool remove_object(Layout& layout, int object_id) {
 }
 
 bool remove_object(Layout& layout, std::string_view label) {
-    auto it = std::remove_if(layout.objects.begin(),
-                             layout.objects.end(),
-                             [label](const Object& object) {
-                                 return object.label == label;
-                             });
+    auto it = std::remove_if(layout.objects.begin(), layout.objects.end(),
+                             [label](const Object& object) { return object.label == label; });
     if (it == layout.objects.end())
         return false;
 
@@ -309,26 +306,66 @@ const Object* find_object(const Layout& layout, std::string_view label) {
     return nullptr;
 }
 
-const Layout* find_best_layout(const std::vector<Layout>& layouts,
-                               int layout_id,
-                               int target_width,
-                               int target_height,
-                               FormFactor preferred_form_factor) {
-    const Layout* best = find_best_matching_form_factor(layouts,
-                                                        layout_id,
-                                                        target_width,
-                                                        target_height,
-                                                        preferred_form_factor,
-                                                        true);
+const Layout* find_best_layout(const std::vector<Layout>& layouts, int layout_id, int target_width,
+                               int target_height, FormFactor preferred_form_factor) {
+    const Layout* best = find_best_matching_form_factor(layouts, layout_id, target_width,
+                                                        target_height, preferred_form_factor, true);
     if (best)
         return best;
 
-    return find_best_matching_form_factor(layouts,
-                                          layout_id,
-                                          target_width,
-                                          target_height,
-                                          preferred_form_factor,
-                                          false);
+    return find_best_matching_form_factor(layouts, layout_id, target_width, target_height,
+                                          preferred_form_factor, false);
+}
+
+void LayoutStore::clear() {
+    layouts.clear();
+}
+
+void LayoutStore::add_or_replace(const Layout& layout) {
+    add_or_replace_layout(layouts, layout);
+}
+
+const Layout* LayoutStore::find_best(int layout_id, int target_width, int target_height,
+                                     FormFactor preferred_form_factor) const {
+    return find_best_layout(layouts, layout_id, target_width, target_height, preferred_form_factor);
+}
+
+Layout* LayoutStore::find_exact(int layout_id, int width, int height, FormFactor form_factor) {
+    for (Layout& layout : layouts) {
+        if (layout.id == layout_id && layout.width == width && layout.height == height &&
+            layout.form_factor == form_factor) {
+            return &layout;
+        }
+    }
+    return nullptr;
+}
+
+const Layout* LayoutStore::find_exact(int layout_id, int width, int height,
+                                      FormFactor form_factor) const {
+    for (const Layout& layout : layouts) {
+        if (layout.id == layout_id && layout.width == width && layout.height == height &&
+            layout.form_factor == form_factor) {
+            return &layout;
+        }
+    }
+    return nullptr;
+}
+
+ParseResult LayoutStore::load_file(const std::filesystem::path& path) {
+    ParseResult result = load_layout_file(path);
+    if (result.ok) {
+        layouts = result.layouts;
+    }
+    return result;
+}
+
+bool LayoutStore::save_file(const std::filesystem::path& path) const {
+    return save_layout_file(path, layouts);
+}
+
+const Layout* find_best_layout(const LayoutStore& store, int layout_id, int target_width,
+                               int target_height, FormFactor preferred_form_factor) {
+    return store.find_best(layout_id, target_width, target_height, preferred_form_factor);
 }
 
 ParseResult parse_layouts(std::string_view text) {
@@ -389,7 +426,8 @@ ParseResult parse_layouts(std::string_view text) {
 
         std::string key = layout_key_string(layout);
         if (seen_keys.contains(key)) {
-            add_warning(result.diagnostics, "duplicate layout variant " + key + "; latest wins on update");
+            add_warning(result.diagnostics,
+                        "duplicate layout variant " + key + "; latest wins on update");
         }
         seen_keys.insert(std::move(key));
         result.layouts.push_back(std::move(layout));
@@ -407,8 +445,7 @@ std::string write_layouts(const std::vector<Layout>& layouts) {
         out << "  (layout\n";
         out << "    (id " << layout.id << ")\n";
         out << "    (label " << gsexp::quote_string(layout.label) << ")\n";
-        out << "    (resolution (width " << layout.width << ") (height " << layout.height
-            << "))\n";
+        out << "    (resolution (width " << layout.width << ") (height " << layout.height << "))\n";
         out << "    (form_factor " << to_string(layout.form_factor) << ")\n";
         out << "    (objects\n";
         for (const Object& object : layout.objects) {
@@ -423,6 +460,10 @@ std::string write_layouts(const std::vector<Layout>& layouts) {
 
     out << ")\n";
     return out.str();
+}
+
+std::string write_layouts(const LayoutStore& store) {
+    return write_layouts(store.layouts);
 }
 
 ParseResult load_layout_file(const std::filesystem::path& path) {
@@ -452,6 +493,10 @@ bool save_layout_file(const std::filesystem::path& path, const std::vector<Layou
 
     file << write_layouts(layouts);
     return file.good();
+}
+
+bool save_layout_file(const std::filesystem::path& path, const LayoutStore& store) {
+    return save_layout_file(path, store.layouts);
 }
 
 int generate_layout_id(const std::vector<Layout>& layouts) {
