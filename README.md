@@ -78,6 +78,10 @@ add_subdirectory(third_party/glayout)
 target_link_libraries(my_game PRIVATE glayout::imgui)
 ```
 
+The ImGui editor accepts either a `std::vector<glayout::Layout>&` or a
+`glayout::LayoutStore&`, so callers using the shared store do not need to expose
+the raw vector unless they want to.
+
 Accepted ImGui inputs are:
 
 - `GLAYOUT_IMGUI_TARGET`: a CMake target name supplied by the caller.
@@ -98,18 +102,14 @@ if (!parsed.ok) {
     // Print parsed.diagnostics.
 }
 
-const glayout::Layout* layout = store.find_best(
-    title_page_id,
-    render_width,
-    render_height,
-    glayout::FormFactor::Desktop);
+const glayout::Layout* layout =
+    store.find_best(title_page_id, render_width, render_height, glayout::FormFactor::Desktop);
 
 if (layout) {
     const glayout::Object* play = glayout::find_object(*layout, "play");
     if (play) {
         glayout::Rect screen_rect = glayout::map_rect(
-            glayout::Rect{0.0f, 0.0f, float(render_width), float(render_height)},
-            play->rect);
+            glayout::Rect{0.0f, 0.0f, float(render_width), float(render_height)}, play->rect);
         // Draw or consume screen_rect in the host application.
     }
 }
