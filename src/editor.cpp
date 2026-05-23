@@ -10,6 +10,7 @@ constexpr float kMinSize = 0.01f;
 constexpr float kHandlePixels = 8.0f;
 constexpr float kPasteNudge = 0.02f;
 constexpr float kSnapEpsilon = 0.01f;
+constexpr std::size_t kMaxHistoryEntries = 64;
 
 bool contains(Rect rect, float x, float y) {
     return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
@@ -401,6 +402,27 @@ bool layout_changed(const Layout& a, const Layout& b) {
     return false;
 }
 
+int next_object_id(const EditorInput& input, const Layout& layout) {
+    if (input.generate_object_id)
+        return input.generate_object_id(layout, input.generate_object_id_user_data);
+    return generate_object_id(layout);
+}
+
+void commit_snapshot(EditorState& editor, const Layout& layout) {
+    if (!editor.undo_stack.empty() && !layout_changed(editor.undo_stack.back(), layout))
+        return;
+
+    editor.undo_stack.push_back(layout);
+    editor.redo_stack.clear();
+    if (editor.undo_stack.size() > kMaxHistoryEntries)
+        editor.undo_stack.erase(editor.undo_stack.begin());
+}
+
+void ensure_history_started(EditorState& editor, const Layout& layout) {
+    if (editor.undo_stack.empty())
+        commit_snapshot(editor, layout);
+}
+
 } // namespace
 
 bool editor_hit_test(const Layout& layout, Viewport viewport, float mouse_x, float mouse_y,
@@ -466,7 +488,7 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
         editor.dirty = true;
     }
     if (input.key_delete && !editor.selection.empty()) {
-        editor_commit_undo(editor, layout);
+        ensure_history_started(editor, layout);
         std::vector<int> to_remove = editor.selection;
         std::sort(to_remove.begin(), to_remove.end());
         for (auto it = to_remove.rbegin(); it != to_remove.rend(); ++it) {
@@ -474,6 +496,7 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
                 layout.objects.erase(layout.objects.begin() + *it);
         }
         editor_clear_selection(editor);
+        editor_commit_undo(editor, layout);
         editor.dirty = true;
         result.changed = true;
         result.selection_changed = true;
@@ -486,27 +509,27 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
         }
     }
     if (input.key_paste && !editor.clipboard.empty()) {
-        editor_commit_undo(editor, layout);
+        ensure_history_started(editor, layout);
         editor_clear_selection(editor);
         for (const Object& object : editor.clipboard) {
             Object copy = object;
-            copy.id = generate_object_id(layout);
+            copy.id = next_object_id(input, layout);
             copy.rect.x = clamp_unit_position(copy.rect.x + kPasteNudge, copy.rect.w);
             copy.rect.y = clamp_unit_position(copy.rect.y + kPasteNudge, copy.rect.h);
             layout.objects.push_back(copy);
             editor_add_to_selection(editor, static_cast<int>(layout.objects.size()) - 1);
         }
+        editor_commit_undo(editor, layout);
         editor.dirty = true;
         result.changed = true;
         result.selection_changed = true;
     }
     if ((input.nudge_x != 0.0f || input.nudge_y != 0.0f) && !editor.selection.empty()) {
-        editor_commit_undo(editor, layout);
+        ensure_history_started(editor, layout);
         if (nudge_selection(editor, layout, input.nudge_x, input.nudge_y)) {
+            editor_commit_undo(editor, layout);
             editor.dirty = true;
             result.changed = true;
-        } else if (!editor.undo_stack.empty()) {
-            editor.undo_stack.pop_back();
         }
     }
 
@@ -554,6 +577,8 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
         }
 
         if (layout_changed(before, layout)) {
+            if (!editor.drag_changed)
+                editor_commit_undo(editor, before);
             editor.drag_changed = true;
             editor.dirty = true;
             result.changed = true;
@@ -561,18 +586,8 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
     }
 
     if (!input.left_down && editor.mouse_was_down && editor.dragging) {
-        if (editor.drag_changed) {
-            Layout before_drag = layout;
-            for (std::size_t i = 0; i < editor.drag_start_selection.size(); ++i) {
-                int index = editor.drag_start_selection[i];
-                if (valid_object_index(before_drag, index) &&
-                    i < editor.drag_start_objects.size()) {
-                    before_drag.objects[static_cast<std::size_t>(index)] =
-                        editor.drag_start_objects[i];
-                }
-            }
-            editor_commit_undo(editor, before_drag);
-        }
+        if (editor.drag_changed)
+            editor_commit_undo(editor, layout);
         editor.dragging = false;
         editor.drag_changed = false;
         editor.drag_start_objects.clear();
@@ -624,14 +639,13 @@ bool editor_nudge_selection(EditorState& editor, Layout& layout, float dx, float
     if (dx == 0.0f && dy == 0.0f)
         return false;
 
-    editor_commit_undo(editor, layout);
+    ensure_history_started(editor, layout);
     if (nudge_selection(editor, layout, dx, dy)) {
+        editor_commit_undo(editor, layout);
         editor.dirty = true;
         return true;
     }
 
-    if (!editor.undo_stack.empty())
-        editor.undo_stack.pop_back();
     return false;
 }
 
@@ -641,17 +655,16 @@ void editor_mark_saved(EditorState& editor) {
 }
 
 void editor_commit_undo(EditorState& editor, const Layout& layout) {
-    editor.undo_stack.push_back(layout);
-    editor.redo_stack.clear();
+    commit_snapshot(editor, layout);
 }
 
 bool editor_undo(EditorState& editor, Layout& layout) {
-    if (editor.undo_stack.empty())
+    if (editor.undo_stack.size() <= 1)
         return false;
 
-    editor.redo_stack.push_back(layout);
-    layout = editor.undo_stack.back();
+    editor.redo_stack.push_back(editor.undo_stack.back());
     editor.undo_stack.pop_back();
+    layout = editor.undo_stack.back();
     prune_selection(editor, layout);
     return true;
 }
@@ -660,8 +673,8 @@ bool editor_redo(EditorState& editor, Layout& layout) {
     if (editor.redo_stack.empty())
         return false;
 
-    editor.undo_stack.push_back(layout);
     layout = editor.redo_stack.back();
+    editor.undo_stack.push_back(layout);
     editor.redo_stack.pop_back();
     prune_selection(editor, layout);
     return true;

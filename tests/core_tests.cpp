@@ -218,7 +218,7 @@ void test_editor_drag_and_undo() {
     require(editor.dirty, "editor drag marks dirty");
     require(layout.objects[0].rect.x > 0.19f && layout.objects[0].rect.x < 0.21f, "editor drag x");
     require(layout.objects[0].rect.y > 0.19f && layout.objects[0].rect.y < 0.21f, "editor drag y");
-    require(editor.undo_stack.size() == 1, "editor drag commits undo");
+    require(editor.undo_stack.size() == 2, "editor drag commits undo history");
 
     require(glayout::editor_undo(editor, layout), "editor undo succeeds");
     require(nearly_equal(layout.objects[0].rect.x, 0.1f), "editor undo x");
@@ -403,7 +403,7 @@ void test_editor_group_resize() {
     require(layout.objects[0].rect.w > 0.22f, "editor group resize first width");
     require(layout.objects[1].rect.w > 0.22f, "editor group resize second width");
     require(layout.objects[1].rect.x > 0.66f, "editor group resize second x");
-    require(editor.undo_stack.size() == 1, "editor group resize commits undo");
+    require(editor.undo_stack.size() == 2, "editor group resize commits undo history");
 }
 
 } // namespace

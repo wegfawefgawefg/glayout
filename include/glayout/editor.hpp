@@ -15,6 +15,8 @@ struct Viewport {
 };
 
 struct EditorInput {
+    using ObjectIdGenerator = int (*)(const Layout& layout, void* user_data);
+
     float mouse_x = 0.0f;
     float mouse_y = 0.0f;
     bool left_down = false;
@@ -28,6 +30,8 @@ struct EditorInput {
     bool key_paste = false;
     float nudge_x = 0.0f;
     float nudge_y = 0.0f;
+    ObjectIdGenerator generate_object_id = nullptr;
+    void* generate_object_id_user_data = nullptr;
 };
 
 enum class Handle {

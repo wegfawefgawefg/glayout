@@ -35,16 +35,21 @@ void commit_on_activation(EditorState& editor, const Layout& layout) {
         editor_commit_undo(editor, layout);
 }
 
+void commit_after_edit(EditorState& editor, const Layout& layout) {
+    if (ImGui::IsItemDeactivatedAfterEdit())
+        editor_commit_undo(editor, layout);
+}
+
 bool input_text_string(EditorState& editor, const Layout& layout, const char* label,
                        std::string& value) {
     char buffer[128]{};
     std::snprintf(buffer, sizeof(buffer), "%s", value.c_str());
     bool changed = ImGui::InputText(label, buffer, sizeof(buffer));
     commit_on_activation(editor, layout);
-    if (!changed)
-        return false;
-    value = buffer;
-    return true;
+    if (changed)
+        value = buffer;
+    commit_after_edit(editor, layout);
+    return changed;
 }
 
 void render_object_table(const Layout& layout, const char* table_id) {
@@ -156,7 +161,6 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
     bool changed = false;
 
     if (ImGui::Button("Add object")) {
-        editor_commit_undo(editor, layout);
         Object object;
         object.id = generate_object_id(layout);
         object.label = "object_" + std::to_string(object.id);
@@ -165,6 +169,7 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
         editor_select_single(editor, static_cast<int>(layout.objects.size()) - 1);
         editor.dirty = true;
         set_status(editor, "Object added");
+        editor_commit_undo(editor, layout);
         changed = true;
     }
 
@@ -190,6 +195,7 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
             editor.dirty = true;
             changed = true;
         }
+        commit_after_edit(editor, layout);
         if (input_text_string(editor, layout, "Label", object.label)) {
             editor.dirty = true;
             changed = true;
@@ -206,12 +212,14 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
             rect_changed = true;
         }
         commit_on_activation(editor, layout);
+        commit_after_edit(editor, layout);
         ImGui::SetNextItemWidth(320.0f);
         if (ImGui::InputFloat("Y", &object.rect.y, 0.01f, 0.1f, "%.3f")) {
             object.rect.y = std::clamp(object.rect.y, 0.0f, 1.0f - object.rect.h);
             rect_changed = true;
         }
         commit_on_activation(editor, layout);
+        commit_after_edit(editor, layout);
         ImGui::SetNextItemWidth(320.0f);
         if (ImGui::InputFloat("Width", &object.rect.w, 0.01f, 0.1f, "%.3f")) {
             object.rect.w = std::clamp(object.rect.w, 0.01f, 1.0f);
@@ -219,6 +227,7 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
             rect_changed = true;
         }
         commit_on_activation(editor, layout);
+        commit_after_edit(editor, layout);
         ImGui::SetNextItemWidth(320.0f);
         if (ImGui::InputFloat("Height", &object.rect.h, 0.01f, 0.1f, "%.3f")) {
             object.rect.h = std::clamp(object.rect.h, 0.01f, 1.0f);
@@ -226,6 +235,7 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
             rect_changed = true;
         }
         commit_on_activation(editor, layout);
+        commit_after_edit(editor, layout);
         if (rect_changed) {
             editor.dirty = true;
             changed = true;
@@ -295,6 +305,7 @@ bool render_layout_metadata(EditorState& editor, Layout& layout) {
         editor.dirty = true;
         changed = true;
     }
+    commit_after_edit(editor, layout);
     ImGui::SetNextItemWidth(320.0f);
     if (input_text_string(editor, layout, "Layout label", layout.label)) {
         editor.dirty = true;
@@ -310,6 +321,7 @@ bool render_layout_metadata(EditorState& editor, Layout& layout) {
         editor.dirty = true;
         changed = true;
     }
+    commit_after_edit(editor, layout);
 
     int height = layout.height;
     ImGui::SetNextItemWidth(160.0f);
@@ -320,6 +332,7 @@ bool render_layout_metadata(EditorState& editor, Layout& layout) {
         editor.dirty = true;
         changed = true;
     }
+    commit_after_edit(editor, layout);
 
     int form_factor = static_cast<int>(layout.form_factor);
     bool form_changed = ImGui::Combo("Form factor", &form_factor, "Desktop\0Tablet\0Phone\0");
@@ -329,6 +342,7 @@ bool render_layout_metadata(EditorState& editor, Layout& layout) {
         editor.dirty = true;
         changed = true;
     }
+    commit_after_edit(editor, layout);
 
     return changed;
 }
