@@ -9,6 +9,7 @@ namespace {
 constexpr float kMinSize = 0.01f;
 constexpr float kHandlePixels = 8.0f;
 constexpr float kPasteNudge = 0.02f;
+constexpr float kSnapEpsilon = 0.01f;
 
 bool contains(Rect rect, float x, float y) {
     return x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
@@ -49,24 +50,20 @@ Handle hit_handle(Rect rect, float mouse_x, float mouse_y) {
         return Handle::BottomLeft;
     if (contains(handle_rect(rect.x + rect.w, rect.y + rect.h, kHandlePixels), mouse_x, mouse_y))
         return Handle::BottomRight;
-    if (contains(Rect{rect.x - kHandlePixels * 0.5f, rect.y, kHandlePixels, rect.h},
-                 mouse_x,
+    if (contains(Rect{rect.x - kHandlePixels * 0.5f, rect.y, kHandlePixels, rect.h}, mouse_x,
                  mouse_y)) {
         return Handle::Left;
     }
     if (contains(Rect{rect.x + rect.w - kHandlePixels * 0.5f, rect.y, kHandlePixels, rect.h},
-                 mouse_x,
-                 mouse_y)) {
+                 mouse_x, mouse_y)) {
         return Handle::Right;
     }
-    if (contains(Rect{rect.x, rect.y - kHandlePixels * 0.5f, rect.w, kHandlePixels},
-                 mouse_x,
+    if (contains(Rect{rect.x, rect.y - kHandlePixels * 0.5f, rect.w, kHandlePixels}, mouse_x,
                  mouse_y)) {
         return Handle::Top;
     }
     if (contains(Rect{rect.x, rect.y + rect.h - kHandlePixels * 0.5f, rect.w, kHandlePixels},
-                 mouse_x,
-                 mouse_y)) {
+                 mouse_x, mouse_y)) {
         return Handle::Bottom;
     }
     if (contains(rect, mouse_x, mouse_y))
@@ -88,28 +85,87 @@ bool valid_object_index(const Layout& layout, int index) {
 }
 
 void prune_selection(EditorState& editor, const Layout& layout) {
-    auto it = std::remove_if(editor.selection.begin(),
-                             editor.selection.end(),
-                             [&](int index) {
-                                 return !valid_object_index(layout, index);
-                             });
+    auto it = std::remove_if(editor.selection.begin(), editor.selection.end(),
+                             [&](int index) { return !valid_object_index(layout, index); });
     editor.selection.erase(it, editor.selection.end());
     sync_primary(editor);
 }
 
-void begin_drag(EditorState& editor,
-                const Layout& layout,
-                const HitResult& hit,
-                float local_x,
+bool selection_bounds_from_indices(const Layout& layout, const std::vector<int>& selection,
+                                   Rect& out_bounds) {
+    bool any = false;
+    float min_x = 0.0f;
+    float min_y = 0.0f;
+    float max_x = 0.0f;
+    float max_y = 0.0f;
+    for (int index : selection) {
+        if (!valid_object_index(layout, index))
+            continue;
+        const Rect& rect = layout.objects[static_cast<std::size_t>(index)].rect;
+        if (!any) {
+            min_x = rect.x;
+            min_y = rect.y;
+            max_x = rect.x + rect.w;
+            max_y = rect.y + rect.h;
+            any = true;
+        } else {
+            min_x = std::min(min_x, rect.x);
+            min_y = std::min(min_y, rect.y);
+            max_x = std::max(max_x, rect.x + rect.w);
+            max_y = std::max(max_y, rect.y + rect.h);
+        }
+    }
+    if (!any)
+        return false;
+    out_bounds = Rect{min_x, min_y, max_x - min_x, max_y - min_y};
+    return true;
+}
+
+float snap_to_neighbors(float value, const std::vector<float>& edges) {
+    for (float edge : edges) {
+        if (std::fabs(value - edge) <= kSnapEpsilon)
+            return edge;
+    }
+    return value;
+}
+
+void collect_neighbor_edges(const Layout& layout, const std::vector<int>& selection,
+                            std::vector<float>& x_edges, std::vector<float>& y_edges) {
+    x_edges.clear();
+    y_edges.clear();
+    x_edges.push_back(0.0f);
+    x_edges.push_back(0.5f);
+    x_edges.push_back(1.0f);
+    y_edges.push_back(0.0f);
+    y_edges.push_back(0.5f);
+    y_edges.push_back(1.0f);
+
+    for (int index = 0; index < static_cast<int>(layout.objects.size()); ++index) {
+        if (std::find(selection.begin(), selection.end(), index) != selection.end())
+            continue;
+        const Rect& rect = layout.objects[static_cast<std::size_t>(index)].rect;
+        x_edges.push_back(rect.x);
+        x_edges.push_back(rect.x + rect.w * 0.5f);
+        x_edges.push_back(rect.x + rect.w);
+        y_edges.push_back(rect.y);
+        y_edges.push_back(rect.y + rect.h * 0.5f);
+        y_edges.push_back(rect.y + rect.h);
+    }
+}
+
+void begin_drag(EditorState& editor, const Layout& layout, const HitResult& hit, float local_x,
                 float local_y) {
     editor.dragging = hit.handle != Handle::None;
     editor.drag_changed = false;
     editor.drag_handle = hit.handle;
     editor.drag_start_x = local_x;
     editor.drag_start_y = local_y;
+    editor.drag_group_bounds = {};
     editor.drag_start_selection = editor.selection;
     editor.drag_start_objects.clear();
     editor.drag_start_objects.reserve(editor.selection.size());
+    (void)selection_bounds_from_indices(layout, editor.drag_start_selection,
+                                        editor.drag_group_bounds);
 
     for (int index : editor.selection) {
         if (valid_object_index(layout, index))
@@ -118,6 +174,30 @@ void begin_drag(EditorState& editor,
 }
 
 void translate_selection(EditorState& editor, Layout& layout, float dx, float dy) {
+    std::vector<float> x_edges;
+    std::vector<float> y_edges;
+    collect_neighbor_edges(layout, editor.drag_start_selection, x_edges, y_edges);
+    if (editor.snap_enabled) {
+        float snapped_left = snap_to_neighbors(editor.drag_group_bounds.x + dx, x_edges);
+        float snapped_right = snap_to_neighbors(
+            editor.drag_group_bounds.x + editor.drag_group_bounds.w + dx, x_edges);
+        float snapped_top = snap_to_neighbors(editor.drag_group_bounds.y + dy, y_edges);
+        float snapped_bottom = snap_to_neighbors(
+            editor.drag_group_bounds.y + editor.drag_group_bounds.h + dy, y_edges);
+        if (std::fabs(snapped_left - (editor.drag_group_bounds.x + dx)) <=
+            std::fabs(snapped_right -
+                      (editor.drag_group_bounds.x + editor.drag_group_bounds.w + dx)))
+            dx = snapped_left - editor.drag_group_bounds.x;
+        else
+            dx = snapped_right - (editor.drag_group_bounds.x + editor.drag_group_bounds.w);
+        if (std::fabs(snapped_top - (editor.drag_group_bounds.y + dy)) <=
+            std::fabs(snapped_bottom -
+                      (editor.drag_group_bounds.y + editor.drag_group_bounds.h + dy)))
+            dy = snapped_top - editor.drag_group_bounds.y;
+        else
+            dy = snapped_bottom - (editor.drag_group_bounds.y + editor.drag_group_bounds.h);
+    }
+
     for (std::size_t i = 0; i < editor.drag_start_selection.size(); ++i) {
         int index = editor.drag_start_selection[i];
         if (!valid_object_index(layout, index) || i >= editor.drag_start_objects.size())
@@ -130,6 +210,79 @@ void translate_selection(EditorState& editor, Layout& layout, float dx, float dy
     }
 }
 
+void resize_group(EditorState& editor, Layout& layout, float dx, float dy) {
+    if (editor.drag_start_selection.empty() || editor.drag_start_objects.empty())
+        return;
+
+    Rect bounds = editor.drag_group_bounds;
+    Rect next = bounds;
+    switch (editor.drag_handle) {
+    case Handle::Left:
+    case Handle::TopLeft:
+    case Handle::BottomLeft:
+        next.x = bounds.x + dx;
+        next.w = bounds.w - dx;
+        break;
+    default:
+        break;
+    }
+    switch (editor.drag_handle) {
+    case Handle::Right:
+    case Handle::TopRight:
+    case Handle::BottomRight:
+        next.w = bounds.w + dx;
+        break;
+    default:
+        break;
+    }
+    switch (editor.drag_handle) {
+    case Handle::Top:
+    case Handle::TopLeft:
+    case Handle::TopRight:
+        next.y = bounds.y + dy;
+        next.h = bounds.h - dy;
+        break;
+    default:
+        break;
+    }
+    switch (editor.drag_handle) {
+    case Handle::Bottom:
+    case Handle::BottomLeft:
+    case Handle::BottomRight:
+        next.h = bounds.h + dy;
+        break;
+    default:
+        break;
+    }
+
+    next.x = maybe_snap(editor, next.x);
+    next.y = maybe_snap(editor, next.y);
+    next.w = maybe_snap(editor, next.w);
+    next.h = maybe_snap(editor, next.h);
+    next.w = std::clamp(next.w, kMinSize, 1.0f);
+    next.h = std::clamp(next.h, kMinSize, 1.0f);
+    next.x = clamp_unit_position(next.x, next.w);
+    next.y = clamp_unit_position(next.y, next.h);
+
+    float sx = bounds.w > 0.0f ? next.w / bounds.w : 1.0f;
+    float sy = bounds.h > 0.0f ? next.h / bounds.h : 1.0f;
+    for (std::size_t i = 0; i < editor.drag_start_selection.size(); ++i) {
+        int index = editor.drag_start_selection[i];
+        if (!valid_object_index(layout, index) || i >= editor.drag_start_objects.size())
+            continue;
+
+        const Rect& start = editor.drag_start_objects[i].rect;
+        Rect rect;
+        rect.x = next.x + (start.x - bounds.x) * sx;
+        rect.y = next.y + (start.y - bounds.y) * sy;
+        rect.w = std::max(kMinSize, start.w * sx);
+        rect.h = std::max(kMinSize, start.h * sy);
+        rect.x = clamp_unit_position(rect.x, rect.w);
+        rect.y = clamp_unit_position(rect.y, rect.h);
+        layout.objects[static_cast<std::size_t>(index)].rect = rect;
+    }
+}
+
 void resize_primary(EditorState& editor, Layout& layout, float dx, float dy) {
     if (editor.drag_start_objects.empty() || editor.primary < 0)
         return;
@@ -138,7 +291,8 @@ void resize_primary(EditorState& editor, Layout& layout, float dx, float dy) {
 
     const Object* start_object = nullptr;
     for (std::size_t i = 0; i < editor.drag_start_selection.size(); ++i) {
-        if (editor.drag_start_selection[i] == editor.primary && i < editor.drag_start_objects.size()) {
+        if (editor.drag_start_selection[i] == editor.primary &&
+            i < editor.drag_start_objects.size()) {
             start_object = &editor.drag_start_objects[i];
             break;
         }
@@ -150,41 +304,45 @@ void resize_primary(EditorState& editor, Layout& layout, float dx, float dy) {
     Rect rect = start.rect;
 
     switch (editor.drag_handle) {
-        case Handle::Left:
-        case Handle::TopLeft:
-        case Handle::BottomLeft:
-            rect.x = start.rect.x + dx;
-            rect.w = start.rect.w - dx;
-            break;
-        default: break;
+    case Handle::Left:
+    case Handle::TopLeft:
+    case Handle::BottomLeft:
+        rect.x = start.rect.x + dx;
+        rect.w = start.rect.w - dx;
+        break;
+    default:
+        break;
     }
 
     switch (editor.drag_handle) {
-        case Handle::Right:
-        case Handle::TopRight:
-        case Handle::BottomRight:
-            rect.w = start.rect.w + dx;
-            break;
-        default: break;
+    case Handle::Right:
+    case Handle::TopRight:
+    case Handle::BottomRight:
+        rect.w = start.rect.w + dx;
+        break;
+    default:
+        break;
     }
 
     switch (editor.drag_handle) {
-        case Handle::Top:
-        case Handle::TopLeft:
-        case Handle::TopRight:
-            rect.y = start.rect.y + dy;
-            rect.h = start.rect.h - dy;
-            break;
-        default: break;
+    case Handle::Top:
+    case Handle::TopLeft:
+    case Handle::TopRight:
+        rect.y = start.rect.y + dy;
+        rect.h = start.rect.h - dy;
+        break;
+    default:
+        break;
     }
 
     switch (editor.drag_handle) {
-        case Handle::Bottom:
-        case Handle::BottomLeft:
-        case Handle::BottomRight:
-            rect.h = start.rect.h + dy;
-            break;
-        default: break;
+    case Handle::Bottom:
+    case Handle::BottomLeft:
+    case Handle::BottomRight:
+        rect.h = start.rect.h + dy;
+        break;
+    default:
+        break;
     }
 
     rect.x = maybe_snap(editor, rect.x);
@@ -222,15 +380,25 @@ bool layout_changed(const Layout& a, const Layout& b) {
 
 } // namespace
 
-bool editor_hit_test(const Layout& layout,
-                     Viewport viewport,
-                     float mouse_x,
-                     float mouse_y,
-                     const std::vector<int>& selection,
-                     HitResult& out_hit) {
+bool editor_hit_test(const Layout& layout, Viewport viewport, float mouse_x, float mouse_y,
+                     const std::vector<int>& selection, HitResult& out_hit) {
     out_hit = HitResult{};
     if (viewport.w <= 0.0f || viewport.h <= 0.0f)
         return false;
+
+    if (selection.size() > 1) {
+        Rect bounds;
+        if (selection_bounds_from_indices(layout, selection, bounds)) {
+            Rect screen_bounds =
+                map_rect(Rect{viewport.x, viewport.y, viewport.w, viewport.h}, bounds);
+            Handle handle = hit_handle(screen_bounds, mouse_x, mouse_y);
+            if (handle != Handle::None) {
+                out_hit.object_index = -1;
+                out_hit.handle = handle;
+                return true;
+            }
+        }
+    }
 
     for (int index : selection) {
         if (!valid_object_index(layout, index))
@@ -257,9 +425,7 @@ bool editor_hit_test(const Layout& layout,
     return false;
 }
 
-EditorFrameResult editor_begin_frame(EditorState& editor,
-                                     Layout& layout,
-                                     const EditorInput& input,
+EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const EditorInput& input,
                                      Viewport viewport) {
     EditorFrameResult result;
     prune_selection(editor, layout);
@@ -317,8 +483,11 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
 
     if (input.left_down && !editor.mouse_was_down) {
         HitResult hit;
-        if (editor_hit_test(layout, viewport, input.mouse_x, input.mouse_y, editor.selection, hit)) {
-            if (input.ctrl || input.shift) {
+        if (editor_hit_test(layout, viewport, input.mouse_x, input.mouse_y, editor.selection,
+                            hit)) {
+            if (hit.object_index < 0) {
+                begin_drag(editor, layout, hit, local_x, local_y);
+            } else if (input.ctrl || input.shift) {
                 if (editor_is_selected(editor, hit.object_index))
                     editor_remove_from_selection(editor, hit.object_index);
                 else
@@ -329,7 +498,7 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
                 result.selection_changed = true;
             }
 
-            if (editor_is_selected(editor, hit.object_index)) {
+            if (hit.object_index >= 0 && editor_is_selected(editor, hit.object_index)) {
                 editor.primary = hit.object_index;
                 begin_drag(editor, layout, hit, local_x, local_y);
             }
@@ -346,6 +515,8 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
 
         if (editor.drag_handle == Handle::Center) {
             translate_selection(editor, layout, dx, dy);
+        } else if (editor.drag_start_selection.size() > 1) {
+            resize_group(editor, layout, dx, dy);
         } else {
             resize_primary(editor, layout, dx, dy);
         }
@@ -362,7 +533,8 @@ EditorFrameResult editor_begin_frame(EditorState& editor,
             Layout before_drag = layout;
             for (std::size_t i = 0; i < editor.drag_start_selection.size(); ++i) {
                 int index = editor.drag_start_selection[i];
-                if (valid_object_index(before_drag, index) && i < editor.drag_start_objects.size()) {
+                if (valid_object_index(before_drag, index) &&
+                    i < editor.drag_start_objects.size()) {
                     before_drag.objects[static_cast<std::size_t>(index)] =
                         editor.drag_start_objects[i];
                 }
@@ -410,6 +582,10 @@ void editor_remove_from_selection(EditorState& editor, int object_index) {
 bool editor_is_selected(const EditorState& editor, int object_index) {
     return std::find(editor.selection.begin(), editor.selection.end(), object_index) !=
            editor.selection.end();
+}
+
+bool editor_selection_bounds(const EditorState& editor, const Layout& layout, Rect& out_bounds) {
+    return selection_bounds_from_indices(layout, editor.selection, out_bounds);
 }
 
 void editor_mark_saved(EditorState& editor) {

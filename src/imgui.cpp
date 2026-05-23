@@ -1,9 +1,8 @@
 #include "glayout/imgui.hpp"
 
-#include <imgui.h>
-
 #include <algorithm>
 #include <cstdio>
+#include <imgui.h>
 #include <string>
 
 namespace glayout::imgui {
@@ -11,9 +10,12 @@ namespace {
 
 const char* form_factor_label(FormFactor form_factor) {
     switch (form_factor) {
-        case FormFactor::Desktop: return "Desktop";
-        case FormFactor::Tablet: return "Tablet";
-        case FormFactor::Phone: return "Phone";
+    case FormFactor::Desktop:
+        return "Desktop";
+    case FormFactor::Tablet:
+        return "Tablet";
+    case FormFactor::Phone:
+        return "Phone";
     }
     return "Desktop";
 }
@@ -22,6 +24,23 @@ std::string layout_list_label(const Layout& layout) {
     return layout.label + " #" + std::to_string(layout.id) + " " + std::to_string(layout.width) +
            "x" + std::to_string(layout.height) + " " +
            std::string(form_factor_label(layout.form_factor));
+}
+
+void commit_on_activation(EditorState& editor, const Layout& layout) {
+    if (ImGui::IsItemActivated())
+        editor_commit_undo(editor, layout);
+}
+
+bool input_text_string(EditorState& editor, const Layout& layout, const char* label,
+                       std::string& value) {
+    char buffer[128]{};
+    std::snprintf(buffer, sizeof(buffer), "%s", value.c_str());
+    bool changed = ImGui::InputText(label, buffer, sizeof(buffer));
+    commit_on_activation(editor, layout);
+    if (!changed)
+        return false;
+    value = buffer;
+    return true;
 }
 
 void render_object_table(const Layout& layout, const char* table_id) {
@@ -43,12 +62,10 @@ void render_object_table(const Layout& layout, const char* table_id) {
         ImGui::TableSetColumnIndex(1);
         ImGui::TextUnformatted(object.label.c_str());
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%.3f, %.3f",
-                    static_cast<double>(object.rect.x),
+        ImGui::Text("%.3f, %.3f", static_cast<double>(object.rect.x),
                     static_cast<double>(object.rect.y));
         ImGui::TableSetColumnIndex(3);
-        ImGui::Text("%.3f, %.3f",
-                    static_cast<double>(object.rect.w),
+        ImGui::Text("%.3f, %.3f", static_cast<double>(object.rect.w),
                     static_cast<double>(object.rect.h));
         ImGui::TableSetColumnIndex(4);
         ImGui::Text("%d", static_cast<int>(i));
@@ -57,10 +74,8 @@ void render_object_table(const Layout& layout, const char* table_id) {
     ImGui::EndTable();
 }
 
-bool render_layout_list(EditorState& editor,
-                        std::vector<Layout>& layouts,
-                        int& selected_layout_index,
-                        float height) {
+bool render_layout_list(EditorState& editor, std::vector<Layout>& layouts,
+                        int& selected_layout_index, float height) {
     bool changed_selection = false;
     if (!ImGui::BeginListBox("Layouts", ImVec2(-FLT_MIN, height)))
         return false;
@@ -79,8 +94,7 @@ bool render_layout_list(EditorState& editor,
     return changed_selection;
 }
 
-bool render_layout_actions(EditorState& editor,
-                           std::vector<Layout>& layouts,
+bool render_layout_actions(EditorState& editor, std::vector<Layout>& layouts,
                            int& selected_layout_index) {
     bool changed = false;
     if (layouts.empty()) {
@@ -159,20 +173,113 @@ bool render_object_editor(EditorState& editor, Layout& layout) {
     if (editor.primary >= 0 && editor.primary < static_cast<int>(layout.objects.size())) {
         Object& object = layout.objects[static_cast<std::size_t>(editor.primary)];
         ImGui::SeparatorText("Selected object");
-        ImGui::Text("ID: %d", object.id);
-        char label[128]{};
-        std::snprintf(label, sizeof(label), "%s", object.label.c_str());
-        if (ImGui::InputText("Label", label, sizeof(label))) {
-            object.label = label;
+        ImGui::SetNextItemWidth(120.0f);
+        int object_id = object.id;
+        bool id_changed = ImGui::InputInt("ID", &object_id);
+        commit_on_activation(editor, layout);
+        if (id_changed) {
+            object.id = object_id;
+            editor.dirty = true;
+            changed = true;
+        }
+        if (input_text_string(editor, layout, "Label", object.label)) {
             editor.dirty = true;
             changed = true;
         }
         float rect[4]{object.rect.x, object.rect.y, object.rect.w, object.rect.h};
-        if (ImGui::DragFloat4("Rect", rect, 0.005f, -2.0f, 2.0f, "%.3f")) {
+        bool rect_changed = ImGui::DragFloat4("Rect", rect, 0.005f, -2.0f, 2.0f, "%.3f");
+        commit_on_activation(editor, layout);
+        if (rect_changed) {
             object.rect = Rect{rect[0], rect[1], rect[2], rect[3]};
             editor.dirty = true;
             changed = true;
         }
+    }
+
+    if (editor.selection.size() > 1) {
+        ImGui::SeparatorText("Selection");
+        Rect bounds;
+        if (editor_selection_bounds(editor, layout, bounds)) {
+            ImGui::Text("Bounds: %.3f %.3f %.3f %.3f", static_cast<double>(bounds.x),
+                        static_cast<double>(bounds.y), static_cast<double>(bounds.w),
+                        static_cast<double>(bounds.h));
+        }
+        if (ImGui::BeginTable("selected_objects", 6,
+                              ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("ID");
+            ImGui::TableSetupColumn("Label");
+            ImGui::TableSetupColumn("X/Y");
+            ImGui::TableSetupColumn("W/H");
+            ImGui::TableSetupColumn("Index");
+            ImGui::TableSetupColumn("");
+            ImGui::TableHeadersRow();
+            for (int index : editor.selection) {
+                if (index < 0 || index >= static_cast<int>(layout.objects.size()))
+                    continue;
+                const Object& object = layout.objects[static_cast<std::size_t>(index)];
+                ImGui::PushID(index);
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%d", object.id);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(object.label.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::Text("%.3f, %.3f", static_cast<double>(object.rect.x),
+                            static_cast<double>(object.rect.y));
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("%.3f, %.3f", static_cast<double>(object.rect.w),
+                            static_cast<double>(object.rect.h));
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%d", index);
+                ImGui::TableSetColumnIndex(5);
+                if (ImGui::SmallButton("Solo")) {
+                    editor_select_single(editor, index);
+                    changed = true;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+    }
+
+    return changed;
+}
+
+bool render_layout_metadata(EditorState& editor, Layout& layout) {
+    bool changed = false;
+    ImGui::SeparatorText("Layout");
+
+    ImGui::SetNextItemWidth(120.0f);
+    int layout_id = layout.id;
+    bool id_changed = ImGui::InputInt("Layout ID", &layout_id);
+    commit_on_activation(editor, layout);
+    if (id_changed) {
+        layout.id = layout_id;
+        editor.dirty = true;
+        changed = true;
+    }
+    if (input_text_string(editor, layout, "Layout label", layout.label)) {
+        editor.dirty = true;
+        changed = true;
+    }
+
+    int resolution[2]{layout.width, layout.height};
+    bool resolution_changed = ImGui::InputInt2("Resolution", resolution);
+    commit_on_activation(editor, layout);
+    if (resolution_changed) {
+        layout.width = std::max(1, resolution[0]);
+        layout.height = std::max(1, resolution[1]);
+        editor.dirty = true;
+        changed = true;
+    }
+
+    int form_factor = static_cast<int>(layout.form_factor);
+    bool form_changed = ImGui::Combo("Form factor", &form_factor, "Desktop\0Tablet\0Phone\0");
+    commit_on_activation(editor, layout);
+    if (form_changed) {
+        layout.form_factor = static_cast<FormFactor>(std::clamp(form_factor, 0, 2));
+        editor.dirty = true;
+        changed = true;
     }
 
     return changed;
@@ -238,14 +345,14 @@ bool render_editor_panel(EditorState& editor, Layout& layout) {
     if (editor.dirty)
         ImGui::TextColored(ImVec4(1.0f, 0.72f, 0.25f, 1.0f), "Dirty");
 
+    changed = render_layout_metadata(editor, layout) || changed;
     changed = render_object_editor(editor, layout) || changed;
 
     ImGui::End();
     return changed;
 }
 
-bool render_layout_pool_editor(EditorState& editor,
-                               std::vector<Layout>& layouts,
+bool render_layout_pool_editor(EditorState& editor, std::vector<Layout>& layouts,
                                int& selected_layout_index) {
     bool changed = false;
 
@@ -289,8 +396,7 @@ bool render_layout_pool_editor(EditorState& editor,
     return changed;
 }
 
-bool render_integrated_editor(EditorState& editor,
-                              std::vector<Layout>& layouts,
+bool render_integrated_editor(EditorState& editor, std::vector<Layout>& layouts,
                               int& selected_layout_index) {
     bool changed = false;
 
@@ -313,9 +419,7 @@ bool render_integrated_editor(EditorState& editor,
 
     ImGui::Text("Layout #%d: %s", selected.id, selected.label.c_str());
     ImGui::SameLine();
-    ImGui::TextDisabled("%dx%d %s",
-                        selected.width,
-                        selected.height,
+    ImGui::TextDisabled("%dx%d %s", selected.width, selected.height,
                         form_factor_label(selected.form_factor));
     ImGui::SameLine();
     if (editor.dirty)
@@ -363,6 +467,7 @@ bool render_integrated_editor(EditorState& editor,
         ImGui::TableSetColumnIndex(1);
         ImGui::TextUnformatted("Objects");
         Layout& current = layouts[static_cast<std::size_t>(selected_layout_index)];
+        changed = render_layout_metadata(editor, current) || changed;
         changed = render_object_editor(editor, current) || changed;
         ImGui::SeparatorText("Help");
         ImGui::TextUnformatted("Drag rectangles in the SDL view. S saves. Z/Y undo/redo.");

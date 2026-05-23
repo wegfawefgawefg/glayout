@@ -369,6 +369,41 @@ void test_editor_overlay_data() {
         glayout::editor_collect_overlay_handles(editor, layout, viewport);
     require(handles.size() == 8, "overlay handles for selected object");
     require(handles[0].object_index == 0, "overlay handle object index");
+
+    glayout::editor_add_to_selection(editor, 1);
+    glayout::Rect bounds;
+    require(glayout::editor_selection_bounds(editor, layout, bounds), "selection bounds exists");
+    require(nearly_equal(bounds.x, 0.1f), "selection bounds x");
+    require(nearly_equal(bounds.y, 0.1f), "selection bounds y");
+    require(nearly_equal(bounds.w, 0.7f), "selection bounds w");
+    require(nearly_equal(bounds.h, 0.7f), "selection bounds h");
+
+    handles = glayout::editor_collect_overlay_handles(editor, layout, viewport);
+    require(handles.size() == 8, "overlay handles for selected group");
+    require(handles[0].object_index == -1, "overlay group handle index");
+    require(handles[0].group, "overlay group handle flag");
+}
+
+void test_editor_group_resize() {
+    glayout::Layout layout = make_editor_layout();
+    glayout::EditorState editor;
+    editor.snap_enabled = false;
+    glayout::Viewport viewport{0.0f, 0.0f, 100.0f, 100.0f};
+
+    glayout::editor_select_single(editor, 0);
+    glayout::editor_add_to_selection(editor, 1);
+
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{80.0f, 80.0f, true}, viewport);
+    glayout::EditorFrameResult drag_result = glayout::editor_begin_frame(
+        editor, layout, glayout::EditorInput{90.0f, 90.0f, true}, viewport);
+    glayout::editor_begin_frame(editor, layout, glayout::EditorInput{90.0f, 90.0f, false},
+                                viewport);
+
+    require(drag_result.changed, "editor group resize changes layout");
+    require(layout.objects[0].rect.w > 0.22f, "editor group resize first width");
+    require(layout.objects[1].rect.w > 0.22f, "editor group resize second width");
+    require(layout.objects[1].rect.x > 0.66f, "editor group resize second x");
+    require(editor.undo_stack.size() == 1, "editor group resize commits undo");
 }
 
 } // namespace
@@ -385,6 +420,7 @@ int main() {
     test_editor_copy_paste();
     test_editor_handles_oversized_rects();
     test_editor_overlay_data();
+    test_editor_group_resize();
 
     std::cout << "glayout_core_tests passed\n";
     return 0;

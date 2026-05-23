@@ -62,6 +62,7 @@ struct OverlayHandle {
     int object_index = -1;
     Handle handle = Handle::None;
     Rect rect;
+    bool group = false;
 };
 
 struct EditorState {
@@ -82,22 +83,17 @@ struct EditorState {
     Handle drag_handle = Handle::None;
     float drag_start_x = 0.0f;
     float drag_start_y = 0.0f;
+    Rect drag_group_bounds;
     std::vector<Object> drag_start_objects;
     std::vector<int> drag_start_selection;
     std::vector<Layout> undo_stack;
     std::vector<Layout> redo_stack;
 };
 
-bool editor_hit_test(const Layout& layout,
-                     Viewport viewport,
-                     float mouse_x,
-                     float mouse_y,
-                     const std::vector<int>& selection,
-                     HitResult& out_hit);
+bool editor_hit_test(const Layout& layout, Viewport viewport, float mouse_x, float mouse_y,
+                     const std::vector<int>& selection, HitResult& out_hit);
 
-EditorFrameResult editor_begin_frame(EditorState& editor,
-                                     Layout& layout,
-                                     const EditorInput& input,
+EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const EditorInput& input,
                                      Viewport viewport);
 
 void editor_clear_selection(EditorState& editor);
@@ -105,6 +101,7 @@ void editor_select_single(EditorState& editor, int object_index);
 void editor_add_to_selection(EditorState& editor, int object_index);
 void editor_remove_from_selection(EditorState& editor, int object_index);
 bool editor_is_selected(const EditorState& editor, int object_index);
+bool editor_selection_bounds(const EditorState& editor, const Layout& layout, Rect& out_bounds);
 
 void editor_mark_saved(EditorState& editor);
 void editor_commit_undo(EditorState& editor, const Layout& layout);
@@ -112,10 +109,8 @@ bool editor_undo(EditorState& editor, Layout& layout);
 bool editor_redo(EditorState& editor, Layout& layout);
 
 std::vector<OverlayObject> editor_collect_overlay_objects(const EditorState& editor,
-                                                          const Layout& layout,
-                                                          Viewport viewport);
+                                                          const Layout& layout, Viewport viewport);
 std::vector<OverlayHandle> editor_collect_overlay_handles(const EditorState& editor,
-                                                          const Layout& layout,
-                                                          Viewport viewport);
+                                                          const Layout& layout, Viewport viewport);
 
 } // namespace glayout

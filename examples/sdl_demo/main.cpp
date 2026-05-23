@@ -40,18 +40,25 @@ const std::array<PreviewPreset, 3> kPreviewPresets{{
 
 const char* page_name(int page_id) {
     switch (page_id) {
-        case kTitlePage: return "Title";
-        case kSettingsPage: return "Settings";
-        case kCreditsPage: return "Credits";
-        default: return "Unknown";
+    case kTitlePage:
+        return "Title";
+    case kSettingsPage:
+        return "Settings";
+    case kCreditsPage:
+        return "Credits";
+    default:
+        return "Unknown";
     }
 }
 
 int next_page(int page_id) {
     switch (page_id) {
-        case kTitlePage: return kSettingsPage;
-        case kSettingsPage: return kCreditsPage;
-        default: return kTitlePage;
+    case kTitlePage:
+        return kSettingsPage;
+    case kSettingsPage:
+        return kCreditsPage;
+    default:
+        return kTitlePage;
     }
 }
 
@@ -59,11 +66,8 @@ std::filesystem::path demo_layout_path() {
     return std::filesystem::path(GLAYOUT_SDL_DEMO_DATA_DIR) / "layouts.lisp";
 }
 
-int best_layout_index(const std::vector<glayout::Layout>& layouts,
-                      int page_id,
-                      int width,
-                      int height,
-                      glayout::FormFactor form_factor) {
+int best_layout_index(const std::vector<glayout::Layout>& layouts, int page_id, int width,
+                      int height, glayout::FormFactor form_factor) {
     const glayout::Layout* best =
         glayout::find_best_layout(layouts, page_id, width, height, form_factor);
     if (!best)
@@ -115,14 +119,11 @@ void draw_grid(SDL_Renderer* renderer, glayout::Viewport viewport, float step) {
     }
 }
 
-void draw_layout(SDL_Renderer* renderer,
-                 const glayout::Layout& layout,
-                 const glayout::EditorState& editor,
-                 int focused_object,
-                 bool edit_mode,
-                 int window_w,
-                 int window_h) {
-    glayout::Viewport viewport{0.0f, 0.0f, static_cast<float>(window_w), static_cast<float>(window_h)};
+void draw_layout(SDL_Renderer* renderer, const glayout::Layout& layout,
+                 const glayout::EditorState& editor, int focused_object, bool edit_mode,
+                 int window_w, int window_h) {
+    glayout::Viewport viewport{0.0f, 0.0f, static_cast<float>(window_w),
+                               static_cast<float>(window_h)};
     if (edit_mode && editor.snap_enabled)
         draw_grid(renderer, viewport, editor.grid_step);
 
@@ -130,7 +131,8 @@ void draw_layout(SDL_Renderer* renderer,
         glayout::editor_collect_overlay_objects(editor, layout, viewport);
 
     for (const glayout::OverlayObject& overlay : overlays) {
-        const glayout::Object& object = layout.objects[static_cast<std::size_t>(overlay.object_index)];
+        const glayout::Object& object =
+            layout.objects[static_cast<std::size_t>(overlay.object_index)];
         SDL_FRect rect = to_sdl_rect(overlay.rect);
 
         if (overlay.object_index == focused_object) {
@@ -185,8 +187,8 @@ int main(int, char**) {
     glayout::ParseResult parsed = glayout::load_layout_file(layout_path);
     if (!parsed.ok) {
         for (const glayout::Diagnostic& diagnostic : parsed.diagnostics) {
-            std::cerr << diagnostic.line << ":" << diagnostic.column << ": "
-                      << diagnostic.message << "\n";
+            std::cerr << diagnostic.line << ":" << diagnostic.column << ": " << diagnostic.message
+                      << "\n";
         }
         return 1;
     }
@@ -196,11 +198,8 @@ int main(int, char**) {
         return 1;
     }
 
-    SDL_Window* window = SDL_CreateWindow(
-        "glayout SDL demo",
-        1280,
-        720,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_UTILITY);
+    SDL_Window* window =
+        SDL_CreateWindow("glayout SDL demo", 1280, 720, SDL_WINDOW_RESIZABLE | SDL_WINDOW_UTILITY);
     if (!window) {
         std::cerr << "SDL_CreateWindow failed: " << SDL_GetError() << "\n";
         SDL_Quit();
@@ -253,57 +252,75 @@ int main(int, char**) {
                     continue;
 
                 switch (event.key.key) {
-                    case SDLK_ESCAPE: running = false; break;
-                    case SDLK_TAB:
-                        page_id = next_page(page_id);
-                        focused_object = 0;
-                        glayout::editor_clear_selection(editor);
-                        break;
-                    case SDLK_1:
-                        page_id = kTitlePage;
-                        focused_object = 0;
-                        glayout::editor_clear_selection(editor);
-                        break;
-                    case SDLK_2:
-                        page_id = kSettingsPage;
-                        focused_object = 0;
-                        glayout::editor_clear_selection(editor);
-                        break;
-                    case SDLK_3:
-                        page_id = kCreditsPage;
-                        focused_object = 0;
-                        glayout::editor_clear_selection(editor);
-                        break;
-                    case SDLK_E: edit_mode = !edit_mode; break;
-                    case SDLK_P:
-                        preview_index =
-                            (preview_index + 1) % static_cast<int>(kPreviewPresets.size());
-                        break;
-                    case SDLK_S: editor_input.key_save = true; break;
-                    case SDLK_Z: editor_input.key_undo = true; break;
-                    case SDLK_Y: editor_input.key_redo = true; break;
-                    case SDLK_DELETE:
-                    case SDLK_BACKSPACE: editor_input.key_delete = true; break;
-                    case SDLK_C: editor_input.key_copy = edit_mode; break;
-                    case SDLK_V: editor_input.key_paste = edit_mode; break;
-                    case SDLK_RETURN:
-                    case SDLK_KP_ENTER: {
-                        int layout_index = best_layout_index(layouts,
-                                                             page_id,
-                                                             kPreviewPresets[preview_index].width,
-                                                             kPreviewPresets[preview_index].height,
-                                                             kPreviewPresets[preview_index].form_factor);
-                        if (layout_index >= 0)
-                            activate_focused(layouts[static_cast<std::size_t>(layout_index)],
-                                             focused_object,
-                                             page_id);
-                        break;
-                    }
-                    case SDLK_UP:
-                    case SDLK_LEFT: focused_object = std::max(0, focused_object - 1); break;
-                    case SDLK_DOWN:
-                    case SDLK_RIGHT: ++focused_object; break;
-                    default: break;
+                case SDLK_ESCAPE:
+                    running = false;
+                    break;
+                case SDLK_TAB:
+                    page_id = next_page(page_id);
+                    focused_object = 0;
+                    glayout::editor_clear_selection(editor);
+                    break;
+                case SDLK_1:
+                    page_id = kTitlePage;
+                    focused_object = 0;
+                    glayout::editor_clear_selection(editor);
+                    break;
+                case SDLK_2:
+                    page_id = kSettingsPage;
+                    focused_object = 0;
+                    glayout::editor_clear_selection(editor);
+                    break;
+                case SDLK_3:
+                    page_id = kCreditsPage;
+                    focused_object = 0;
+                    glayout::editor_clear_selection(editor);
+                    break;
+                case SDLK_E:
+                    edit_mode = !edit_mode;
+                    break;
+                case SDLK_P:
+                    preview_index = (preview_index + 1) % static_cast<int>(kPreviewPresets.size());
+                    break;
+                case SDLK_S:
+                    editor_input.key_save = true;
+                    break;
+                case SDLK_Z:
+                    editor_input.key_undo = true;
+                    break;
+                case SDLK_Y:
+                    editor_input.key_redo = true;
+                    break;
+                case SDLK_DELETE:
+                case SDLK_BACKSPACE:
+                    editor_input.key_delete = true;
+                    break;
+                case SDLK_C:
+                    editor_input.key_copy = edit_mode;
+                    break;
+                case SDLK_V:
+                    editor_input.key_paste = edit_mode;
+                    break;
+                case SDLK_RETURN:
+                case SDLK_KP_ENTER: {
+                    int layout_index =
+                        best_layout_index(layouts, page_id, kPreviewPresets[preview_index].width,
+                                          kPreviewPresets[preview_index].height,
+                                          kPreviewPresets[preview_index].form_factor);
+                    if (layout_index >= 0)
+                        activate_focused(layouts[static_cast<std::size_t>(layout_index)],
+                                         focused_object, page_id);
+                    break;
+                }
+                case SDLK_UP:
+                case SDLK_LEFT:
+                    focused_object = std::max(0, focused_object - 1);
+                    break;
+                case SDLK_DOWN:
+                case SDLK_RIGHT:
+                    ++focused_object;
+                    break;
+                default:
+                    break;
                 }
             }
         }
@@ -350,9 +367,7 @@ int main(int, char**) {
 #endif
 
         if (edit_mode) {
-            glayout::editor_begin_frame(editor,
-                                        layout,
-                                        editor_input,
+            glayout::editor_begin_frame(editor, layout, editor_input,
                                         glayout::Viewport{
                                             0.0f,
                                             0.0f,
@@ -395,12 +410,11 @@ int main(int, char**) {
         set_color(renderer, 245, 245, 245, 255);
         draw_textf(renderer, 14.0f, 14.0f, "page: %s", page_name(page_id));
         draw_textf(renderer, 14.0f, 30.0f, "preview: %s", preview.label);
-        draw_text(renderer,
-                  14.0f,
-                  46.0f,
+        draw_text(renderer, 14.0f, 46.0f,
                   edit_mode ? "edit: ON  drag rects, S save, Z/Y undo/redo, C/V copy/paste"
                             : "edit: OFF  E toggles editor");
-        draw_text(renderer, 14.0f, 62.0f, "Tab/1/2/3 page, P preview, arrows focus, Enter activate");
+        draw_text(renderer, 14.0f, 62.0f,
+                  "Tab/1/2/3 page, P preview, arrows focus, Enter activate");
         if (editor.dirty) {
             set_color(renderer, 255, 190, 80, 255);
             draw_text(renderer, 14.0f, 78.0f, "dirty");
