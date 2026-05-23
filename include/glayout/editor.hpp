@@ -2,6 +2,7 @@
 
 #include "glayout/layout.hpp"
 
+#include <string>
 #include <vector>
 
 namespace glayout {
@@ -71,6 +72,7 @@ struct EditorState {
     bool save_requested = false;
     bool snap_enabled = true;
     float grid_step = 0.05f;
+    std::string status_text;
     std::vector<int> selection;
     int primary = -1;
     std::vector<Object> clipboard;
