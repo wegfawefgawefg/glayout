@@ -26,6 +26,8 @@ struct EditorInput {
     bool key_delete = false;
     bool key_copy = false;
     bool key_paste = false;
+    float nudge_x = 0.0f;
+    float nudge_y = 0.0f;
 };
 
 enum class Handle {
@@ -104,6 +106,7 @@ void editor_add_to_selection(EditorState& editor, int object_index);
 void editor_remove_from_selection(EditorState& editor, int object_index);
 bool editor_is_selected(const EditorState& editor, int object_index);
 bool editor_selection_bounds(const EditorState& editor, const Layout& layout, Rect& out_bounds);
+bool editor_nudge_selection(EditorState& editor, Layout& layout, float dx, float dy);
 
 void editor_mark_saved(EditorState& editor);
 void editor_commit_undo(EditorState& editor, const Layout& layout);

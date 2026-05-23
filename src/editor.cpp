@@ -210,6 +210,29 @@ void translate_selection(EditorState& editor, Layout& layout, float dx, float dy
     }
 }
 
+bool nudge_selection(EditorState& editor, Layout& layout, float dx, float dy) {
+    if (editor.selection.empty())
+        return false;
+
+    bool changed = false;
+    for (int index : editor.selection) {
+        if (!valid_object_index(layout, index))
+            continue;
+
+        Object& object = layout.objects[static_cast<std::size_t>(index)];
+        float next_x = clamp_unit_position(object.rect.x + dx, object.rect.w);
+        float next_y = clamp_unit_position(object.rect.y + dy, object.rect.h);
+        if (next_x == object.rect.x && next_y == object.rect.y)
+            continue;
+
+        object.rect.x = next_x;
+        object.rect.y = next_y;
+        changed = true;
+    }
+
+    return changed;
+}
+
 void resize_group(EditorState& editor, Layout& layout, float dx, float dy) {
     if (editor.drag_start_selection.empty() || editor.drag_start_objects.empty())
         return;
@@ -477,6 +500,15 @@ EditorFrameResult editor_begin_frame(EditorState& editor, Layout& layout, const 
         result.changed = true;
         result.selection_changed = true;
     }
+    if ((input.nudge_x != 0.0f || input.nudge_y != 0.0f) && !editor.selection.empty()) {
+        editor_commit_undo(editor, layout);
+        if (nudge_selection(editor, layout, input.nudge_x, input.nudge_y)) {
+            editor.dirty = true;
+            result.changed = true;
+        } else if (!editor.undo_stack.empty()) {
+            editor.undo_stack.pop_back();
+        }
+    }
 
     float local_x = viewport.w > 0.0f ? (input.mouse_x - viewport.x) / viewport.w : 0.0f;
     float local_y = viewport.h > 0.0f ? (input.mouse_y - viewport.y) / viewport.h : 0.0f;
@@ -586,6 +618,21 @@ bool editor_is_selected(const EditorState& editor, int object_index) {
 
 bool editor_selection_bounds(const EditorState& editor, const Layout& layout, Rect& out_bounds) {
     return selection_bounds_from_indices(layout, editor.selection, out_bounds);
+}
+
+bool editor_nudge_selection(EditorState& editor, Layout& layout, float dx, float dy) {
+    if (dx == 0.0f && dy == 0.0f)
+        return false;
+
+    editor_commit_undo(editor, layout);
+    if (nudge_selection(editor, layout, dx, dy)) {
+        editor.dirty = true;
+        return true;
+    }
+
+    if (!editor.undo_stack.empty())
+        editor.undo_stack.pop_back();
+    return false;
 }
 
 void editor_mark_saved(EditorState& editor) {
