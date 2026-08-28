@@ -11,8 +11,8 @@ option(GLAYOUT_WITH_IMGUI "Build optional Dear ImGui helpers" OFF)
 option(GLAYOUT_FETCH_DEMO_IMGUI "Fetch Dear ImGui for the SDL demo when no ImGui is provided" ON)
 set(GLAYOUT_IMGUI_TARGET "" CACHE STRING "Dear ImGui CMake target for optional ImGui helpers")
 set(GLAYOUT_IMGUI_SOURCE_DIR "" CACHE PATH "Optional Dear ImGui source tree used to create an imgui target")
-set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../gsexp"
-    CACHE PATH "Path to a gsexp source tree when gsexp::gsexp is not already available")
+set(GLAYOUT_GSEXP_SOURCE_DIR "" CACHE PATH
+    "Optional gsexp source tree when gsexp::gsexp is not already available")
 
 if(NOT TARGET gsexp::gsexp)
     if(EXISTS "${GLAYOUT_GSEXP_SOURCE_DIR}/CMakeLists.txt")
@@ -20,9 +20,13 @@ if(NOT TARGET gsexp::gsexp)
         set(GSEXP_BUILD_TESTS OFF CACHE BOOL "Build gsexp tests" FORCE)
         add_subdirectory("${GLAYOUT_GSEXP_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/_deps/gsexp")
     else()
-        message(FATAL_ERROR
-            "gsexp::gsexp target was not found and GLAYOUT_GSEXP_SOURCE_DIR does not point "
-            "to a gsexp source tree: ${GLAYOUT_GSEXP_SOURCE_DIR}")
+        include(FetchContent)
+        set(GSEXP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(GSEXP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(gsexp
+            GIT_REPOSITORY https://github.com/wegfawefgawefg/gsexp.git
+            GIT_TAG f194b25)
+        FetchContent_MakeAvailable(gsexp)
     endif()
 endif()
 

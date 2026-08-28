@@ -9,6 +9,23 @@ projects that only want stronger layout calculation.
 The full ecosystem contract lives in the neighboring GView repository at
 `docs/MASTER_PLAN.md`. This document records GLayout's narrower responsibility.
 
+## Milestone status
+
+The graph target is implemented and independently tested. It provides dense
+compiled hierarchy, all listed container kinds, sizing and intrinsic
+measurement, min/max/aspect constraints, named anchors with cycle diagnostics,
+safe-area resolution, clip propagation, content extents, responsive graph-store
+selection, clean-frame caching, S-expression persistence, structural edits,
+nested template repetition, and snapshot undo/redo. GView supplies the live
+composed editor and uses these renderer-free operations rather than duplicating
+them.
+
+Dirty invalidation currently resolves the compact graph as one deterministic
+domain after a geometry change; clean frames do no layout work. Trial-sized
+dirty resolves are far below the one-millisecond target. A dependency-indexed
+partial resolver should be added only when a larger real UI demonstrates that
+whole-graph dirty resolution is material, not as speculative complexity.
+
 ## Existing contract
 
 Current GLayout stores flat normalized rectangles, selects resolution/form-factor

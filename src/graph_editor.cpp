@@ -135,6 +135,30 @@ bool graph_duplicate_node(GraphLayout& layout, std::string_view id, std::string 
     return true;
 }
 
+// Instantiates a nested geometry template while repairing its internal anchor references.
+GraphNode instantiate_graph_template(const GraphNode& prototype, std::string new_root_id) {
+    GraphNode copy = prototype;
+    std::unordered_map<std::string, std::string> mapping;
+    rename_copy(copy, prototype.id, new_root_id, mapping);
+    repair_copy_anchors(copy, mapping);
+    return copy;
+}
+
+// Repeats a geometry template transactionally using caller-owned stable item identities.
+bool graph_repeat_children(GraphLayout& layout, std::string_view parent_id,
+                           const GraphNode& prototype, const std::vector<std::string>& item_ids) {
+    if (prototype.id.empty() || !find_graph_node(layout, parent_id))
+        return false;
+    GraphLayout edited = layout;
+    for (const std::string& id : item_ids) {
+        if (id.empty() ||
+            !graph_add_child(edited, parent_id, instantiate_graph_template(prototype, id)))
+            return false;
+    }
+    layout = std::move(edited);
+    return true;
+}
+
 // Stores authoring-only snapshots so runtime structures stay allocation free.
 void graph_editor_commit(GraphEditorState& editor, const GraphLayout& before) {
     editor.undo_stack.push_back(before);

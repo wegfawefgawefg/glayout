@@ -22,6 +22,9 @@ bool graph_add_child(GraphLayout& layout, std::string_view parent_id, GraphNode 
 bool graph_remove_node(GraphLayout& layout, std::string_view id);
 bool graph_reparent_node(GraphLayout& layout, std::string_view id, std::string_view parent_id);
 bool graph_duplicate_node(GraphLayout& layout, std::string_view id, std::string new_id);
+GraphNode instantiate_graph_template(const GraphNode& prototype, std::string new_root_id);
+bool graph_repeat_children(GraphLayout& layout, std::string_view parent_id,
+                           const GraphNode& prototype, const std::vector<std::string>& item_ids);
 
 void graph_editor_commit(GraphEditorState& editor, const GraphLayout& before);
 bool graph_editor_undo(GraphEditorState& editor, GraphLayout& layout);

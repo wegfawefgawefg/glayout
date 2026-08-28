@@ -126,6 +126,11 @@ void test_graph_editor() {
             "nested subtree can be duplicated");
     require(glayout::find_graph_node(layout, "rail_copy/play"),
             "duplicated descendants receive unique identities");
+    glayout::GraphNode item = layout.root.children[0];
+    require(glayout::graph_repeat_children(layout, "body", item, {"profile/moss", "profile/vega"}),
+            "runtime-sized collections repeat nested geometry templates");
+    require(glayout::find_graph_node(layout, "profile/moss/play"),
+            "repeated template descendants retain stable item identity");
     glayout::graph_editor_commit(editor, before);
     require(glayout::graph_editor_undo(editor, layout), "undo restores prior graph");
     require(!glayout::find_graph_node(layout, "rail_copy"), "undo removes duplicated subtree");

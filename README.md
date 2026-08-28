@@ -65,9 +65,9 @@ Link `glayout::graph` when using hierarchical layouts. It brings in
 target_link_libraries(my_game PRIVATE glayout::graph)
 ```
 
-For sibling development checkouts, `glayout` defaults
-`GLAYOUT_GSEXP_SOURCE_DIR` to `../gsexp`. If your layout is different, set it
-before adding `glayout`:
+For sibling development checkouts, set `GLAYOUT_GSEXP_SOURCE_DIR` explicitly.
+If no existing target or source path is supplied, GLayout fetches its pinned
+standalone GSEXP revision:
 
 ```cmake
 set(GLAYOUT_GSEXP_SOURCE_DIR "${CMAKE_SOURCE_DIR}/third_party/gsexp" CACHE PATH "" FORCE)
@@ -165,6 +165,19 @@ runtime.resolve({
 const glayout::ResolvedNode* catalog = runtime.find("mod_catalog");
 // Render, hit-test, or inspect catalog->border and catalog->clip in the host.
 ```
+
+Nested templates remain geometry-only. A collection owner can instantiate a
+template for stable game-owned keys before compilation:
+
+```cpp
+glayout::GraphNode card = make_card_template();
+glayout::graph_repeat_children(layout, "catalog", card,
+                               {"mod/base", "mod/weather", "mod/maps"});
+```
+
+The operation is transactional, recursively gives descendants unique IDs, and
+repairs anchors that point within the template. GLayout does not own the data
+source, virtualization window, scroll state, or rendered content.
 
 ## Build
 
