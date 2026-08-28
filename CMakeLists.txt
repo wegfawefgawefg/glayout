@@ -92,6 +92,23 @@ endfunction()
 
 glayout_apply_warnings(glayout_core)
 
+add_library(glayout_graph
+    src/graph_compile.cpp
+    src/graph_editor.cpp
+    src/graph_io.cpp
+    src/graph_layout.cpp
+    src/graph_types.cpp
+)
+add_library(glayout::graph ALIAS glayout_graph)
+target_link_libraries(glayout_graph PUBLIC glayout::core)
+target_include_directories(glayout_graph
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+target_compile_features(glayout_graph PUBLIC cxx_std_20)
+glayout_apply_warnings(glayout_graph)
+
 if(GLAYOUT_BUILD_EXAMPLES)
     add_executable(glayout_demo examples/glayout_demo.cpp)
     target_link_libraries(glayout_demo PRIVATE glayout::core)
@@ -146,6 +163,13 @@ if(GLAYOUT_BUILD_TESTS)
     glayout_apply_warnings(glayout_core_tests)
 
     add_test(NAME glayout_core_tests COMMAND glayout_core_tests)
+
+    add_executable(glayout_graph_tests tests/graph_tests.cpp)
+    target_link_libraries(glayout_graph_tests PRIVATE glayout::graph)
+    target_compile_features(glayout_graph_tests PRIVATE cxx_std_20)
+    glayout_apply_warnings(glayout_graph_tests)
+
+    add_test(NAME glayout_graph_tests COMMAND glayout_graph_tests)
 endif()
 
 if(GLAYOUT_WITH_IMGUI)

@@ -4,18 +4,18 @@
   <img src="assets/logo.svg" alt="glayout logo" width="96" height="96">
 </p>
 
-`glayout` is a small C++20 library for storing, selecting, and editing 2D
-rectangle layouts. It is meant for games and custom UI code that already has its
-own renderer, input system, and widget behavior.
+`glayout` is a small C++20 library for calculating, storing, selecting, and
+editing 2D layout geometry. It is meant for games and custom UI code that
+already has its own renderer, input system, and widget behavior.
 
-The library stores named/id'd rectangles in normalized coordinates. At runtime,
-the host asks for the closest layout variant for a page id, resolution, and form
-factor. Optional editor functions let a host move, resize, copy, paste, undo,
-redo, and save those rectangles.
+The compatibility API stores named rectangles in normalized coordinates. The
+graph API adds nested absolute, row, column, grid, stack, and overlay containers,
+intrinsic measurement, constraints, anchors, clipping bounds, and content
+extents. Both APIs support resolution, DPI, and form-factor variants.
 
 `glayout` is not a UI framework. It does not own widgets, rendering, input
-routing, navigation, clipping, scrolling, styling, or the app loop. The host
-decides what each rectangle means.
+routing, navigation, scroll state, styling, application state, or the app loop.
+The host decides what each rectangle means. `gview` is the companion UI layer.
 
 ## Screenshot
 
@@ -27,6 +27,8 @@ decides what each rectangle means.
 
 - `glayout::core`: layout structs, parsing/writing, layout matching, rectangle
   helpers, and renderer-free editor state/functions.
+- `glayout::graph`: hierarchical compiled geometry, S-expression persistence,
+  intrinsic measurement, constraints, clipping bounds, and structural editing.
 - `glayout::imgui`: optional Dear ImGui editor/browser helpers.
 
 `glayout::core` depends on `gsexp::gsexp` for S-expression parsing. It has no
@@ -54,6 +56,13 @@ set(GLAYOUT_BUILD_SDL_DEMO OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/glayout)
 
 target_link_libraries(my_game PRIVATE glayout::core)
+```
+
+Link `glayout::graph` when using hierarchical layouts. It brings in
+`glayout::core` transitively:
+
+```cmake
+target_link_libraries(my_game PRIVATE glayout::graph)
 ```
 
 For sibling development checkouts, `glayout` defaults
@@ -139,6 +148,23 @@ if (editor.save_requested) {
 `EditorState` is intentionally inspectable. Fields near the top are normal
 caller-visible state/configuration. The lower bookkeeping fields are public for
 debugging, but normal callers should let the editor functions update them.
+
+Hierarchical use compiles readable authoring data once and reuses resolved
+geometry while the viewport and graph remain clean:
+
+```cpp
+glayout::GraphParseResult parsed = glayout::load_graph_file("shell.glayout.lisp");
+glayout::GraphCompileResult compiled = glayout::compile_graph(parsed.layouts.front());
+glayout::GraphRuntime runtime(std::move(compiled.graph));
+
+runtime.resolve({
+    .viewport = {0.0f, 0.0f, 1280.0f, 720.0f},
+    .safe_area = {24.0f, 16.0f, 24.0f, 16.0f},
+});
+
+const glayout::ResolvedNode* catalog = runtime.find("mod_catalog");
+// Render, hit-test, or inspect catalog->border and catalog->clip in the host.
+```
 
 ## Build
 
