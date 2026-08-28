@@ -138,6 +138,83 @@ void test_graph_editor() {
     require(glayout::find_graph_node(layout, "rail_copy"), "redo restores duplicated subtree");
 }
 
+// Verifies native-canvas movement maps pixels through parent content geometry.
+void test_graph_canvas_absolute_move() {
+    glayout::GraphLayout layout;
+    layout.id = "canvas";
+    layout.root.id = "root";
+    layout.root.container = glayout::ContainerKind::Absolute;
+    layout.root.padding = {20.0f, 10.0f, 20.0f, 10.0f};
+    glayout::GraphNode child = fixed("child", 100.0f, 80.0f);
+    child.absolute_rect = {0.1f, 0.2f, 0.25f, 0.25f};
+    layout.root.children.push_back(child);
+
+    glayout::GraphRuntime runtime(glayout::compile_graph(layout).graph);
+    runtime.resolve({{0.0f, 0.0f, 500.0f, 300.0f}, {}, nullptr, nullptr});
+    glayout::GraphCanvasState canvas;
+    canvas.selection = {"root"};
+    canvas.primary = "root";
+    const glayout::Rect before = runtime.find("child")->border;
+    require(glayout::graph_canvas_press(layout, runtime.graph(), runtime.nodes(), canvas,
+                                        before.x + 20.0f, before.y + 20.0f, false)
+                .transaction_started,
+            "canvas press begins direct manipulation");
+    require(canvas.primary == "child", "selected container does not intercept a deeper child");
+    require(glayout::graph_canvas_drag(layout, runtime.graph(), runtime.nodes(), canvas,
+                                       before.x + 36.0f, before.y + 20.0f)
+                .changed,
+            "canvas drag mutates absolute geometry");
+    require(near(layout.root.children[0].absolute_rect.x, 0.1f + 16.0f / 460.0f),
+            "absolute movement uses padded parent content width");
+    require(glayout::graph_canvas_release(layout, runtime.graph(), runtime.nodes(), canvas,
+                                          before.x + 36.0f, before.y + 20.0f)
+                .transaction_finished,
+            "canvas release closes transaction");
+}
+
+// Verifies multi-selection bounds and structural row reordering remain deterministic.
+void test_graph_canvas_selection_and_reorder() {
+    glayout::GraphLayout layout = sample_graph();
+    glayout::GraphRuntime runtime(glayout::compile_graph(layout).graph);
+    runtime.resolve({{0.0f, 0.0f, 1280.0f, 720.0f}, {}, nullptr, nullptr});
+    glayout::GraphCanvasState canvas;
+    canvas.selection = {"play", "settings_button"};
+    canvas.primary = "settings_button";
+    glayout::Rect bounds;
+    require(glayout::graph_canvas_selection_bounds(runtime.graph(), runtime.nodes(), canvas,
+                                                    bounds),
+            "multi-selection bounds resolve");
+    require(near(bounds.y, 10.0f) && near(bounds.h, 100.0f),
+            "multi-selection bounds union keeps original edges");
+
+    canvas.selection = {"rail"};
+    canvas.primary = "rail";
+    const glayout::Rect rail = runtime.find("rail")->border;
+    glayout::graph_canvas_press(layout, runtime.graph(), runtime.nodes(), canvas,
+                               rail.x + 30.0f, rail.y + 180.0f, false);
+    const glayout::Rect body = runtime.find("body")->border;
+    glayout::graph_canvas_release(layout, runtime.graph(), runtime.nodes(), canvas,
+                                 body.x + body.w, body.y);
+    require(layout.root.children.back().id == "rail", "row node can reorder to final position");
+}
+
+// Verifies keyboard nudging never turns a flow child into an accidental reorder.
+void test_graph_canvas_flow_nudge() {
+    glayout::GraphLayout layout = sample_graph();
+    glayout::GraphRuntime runtime(glayout::compile_graph(layout).graph);
+    runtime.resolve({{0.0f, 0.0f, 1280.0f, 720.0f}, {}, nullptr, nullptr});
+    glayout::GraphCanvasState canvas;
+    canvas.selection = {"rail"};
+    canvas.primary = "rail";
+    require(!glayout::graph_canvas_nudge(layout, runtime.graph(), runtime.nodes(), canvas,
+                                         16.0f, 0.0f),
+            "flow child ignores position nudge without anchors");
+    require(layout.root.children.front().id == "rail",
+            "flow nudge preserves structural ordering");
+    require(!canvas.dragging && canvas.drag_nodes.empty(),
+            "nudge closes its direct-manipulation state");
+}
+
 } // namespace
 
 int main() {
@@ -146,6 +223,9 @@ int main() {
     test_round_trip();
     test_anchor_validation();
     test_graph_editor();
+    test_graph_canvas_absolute_move();
+    test_graph_canvas_selection_and_reorder();
+    test_graph_canvas_flow_nudge();
     std::cout << "glayout graph tests passed\n";
     return 0;
 }

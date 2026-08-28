@@ -26,6 +26,14 @@ dirty resolves are far below the one-millisecond target. A dependency-indexed
 partial resolver should be added only when a larger real UI demonstrates that
 whole-graph dirty resolution is material, not as speculative complexity.
 
+The renderer-free graph-canvas editing domain is now implemented and composed
+by GView on the real native canvas. It supplies selection and multi-selection,
+center movement, eight resize handles, grid and true-sibling snapping, guides,
+nudge, transaction boundaries, anchored edits, constraint-aware flow resize and
+reorder, and selection bounds. Focus and presentation remain outside GLayout.
+The composed workflow is ready for user review; its acceptance contract lives
+in `../../gview/docs/AUTHORING_PRESENTATION_PLAN.md`.
+
 ## Existing contract
 
 Current GLayout stores flat normalized rectangles, selects resolution/form-factor
@@ -101,6 +109,23 @@ Renderer-free editor operations should cover:
 
 Optional ImGui UI remains an adapter over those operations. GView may compose
 the editor with presentation/focus tools, but GLayout does not depend on GView.
+
+The graph-canvas pass preserves the useful behavior already present in
+`include/glayout/editor.hpp`, `src/editor.cpp`, `src/editor_overlay.cpp`, the SDL
+demo, and Gubsy's `src/layout_editor`: center/edge/corner manipulation,
+multi-select, grid and sibling snapping, nudging, copy/paste, undo/redo, numeric
+editing, and persistence. Preserve the workflow rather than blindly retaining
+weak implementation details.
+
+Direct edits map back to the authored layout kind. Absolute nodes may edit
+rectangles, while stack/grid/row/column nodes edit tracks, order, sizing, gaps,
+or alignment; anchored nodes edit anchor offsets; responsive edits target the
+explicit active variant. The editor must never silently flatten constraints to
+make dragging easy.
+
+GLayout supplies renderer-free manipulation and snapping. GView supplies
+semantic widget-part selection and focus authoring. Gubsy hosts input, native
+overlays, display simulation, and persistence integration.
 
 ## Performance
 

@@ -97,6 +97,7 @@ endfunction()
 glayout_apply_warnings(glayout_core)
 
 add_library(glayout_graph
+    src/graph_canvas.cpp
     src/graph_compile.cpp
     src/graph_editor.cpp
     src/graph_io.cpp
